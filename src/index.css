@@ -1,0 +1,236 @@
+@import "tailwindcss";
+
+/* Force dark mode always */
+html {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
+}
+
+html.dark {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
+}
+
+/* Keyframes for animations */
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { 
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% { 
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% { 
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes typing {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes toast-progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* Widget-specific base styles */
+@layer base {
+  /* Widget root container styles */
+  .widget-root {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color-scheme: light;
+    color: rgba(51, 51, 51, 0.87);
+    background-color: transparent;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+@layer components {
+  /* Chat bubble styles - IMPROVED with better padding and spacing */
+  .message-bubble {
+    max-width: 20rem; /* max-w-xs equivalent */
+    padding-left: 1.25rem; /* px-5 - increased padding */
+    padding-right: 1.25rem; /* px-5 - increased padding */
+    padding-top: 0.75rem; /* py-3 - increased padding */
+    padding-bottom: 0.75rem; /* py-3 - increased padding */
+    border-radius: 1rem; /* rounded-2xl */
+    word-wrap: break-word;
+    margin-top: 0.5rem; /* mt-2 - added margin between avatar and bubble */
+    margin-bottom: 0.5rem; /* mb-2 - added margin between bubbles */
+  }
+  
+  @screen lg {
+    .message-bubble {
+      max-width: 24rem;
+    }
+  }
+  
+  .message-bubble.user {
+    background-color: var(--widget-primary, #0066CC);
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 0.375rem;
+  }
+  
+  .message-bubble.assistant {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    margin-right: auto;
+    border-bottom-left-radius: 0.375rem;
+  }
+  
+  /* Widget button styles */
+  .widget-button {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    outline: none;
+  }
+  
+  .widget-button:hover {
+    transform: scale(1.1);
+  }
+  
+  .widget-button:focus {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+  }
+  
+  /* Chat window styles */
+  .chat-window {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    gap: 0.25rem;
+    padding: 1rem;
+  }
+  
+  .typing-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background-color: #9ca3af;
+    border-radius: 50%;
+    animation: typing 1.5s infinite;
+  }
+  
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+}
+
+@layer utilities {
+  /* Missing max-width utilities */
+  .max-w-xs { max-width: 20rem; }
+  .max-w-sm { max-width: 24rem; }
+  .max-w-md { max-width: 28rem; }
+  .max-w-lg { max-width: 32rem; }
+  .max-w-xl { max-width: 36rem; }
+  .max-w-2xl { max-width: 42rem; }
+  .max-w-3xl { max-width: 48rem; }
+  .max-w-4xl { max-width: 56rem; }
+  .max-w-5xl { max-width: 64rem; }
+  .max-w-6xl { max-width: 72rem; }
+  .max-w-7xl { max-width: 80rem; }
+  .max-w-20 { max-width: 5rem; }
+  
+  /* Widget positioning utilities */
+  .widget-position-bottom-right {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+  }
+  
+  .widget-position-bottom-left {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    z-index: 9999;
+  }
+  
+  .widget-position-top-right {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 9999;
+  }
+  
+  .widget-position-top-left {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 9999;
+  }
+  
+  /* Mobile responsive adjustments */
+  @screen max-sm {
+    .widget-position-bottom-right,
+    .widget-position-bottom-left {
+      @apply bottom-4 right-4 left-4;
+    }
+  }
+  
+  /* Hide scrollbar but maintain functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Toast animation classes */
+  .animate-toast-progress {
+    animation: toast-progress linear forwards;
+  }
+}

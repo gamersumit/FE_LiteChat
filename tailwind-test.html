@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailwind CSS Test</title>
+    <style>
+        /* Import your actual CSS to test */
+        @import "tailwindcss";
+        
+        /* Test missing max-width utilities */
+        .max-w-xs { max-width: 20rem; }
+        .max-w-sm { max-width: 24rem; }
+        .max-w-md { max-width: 28rem; }
+        .max-w-lg { max-width: 32rem; }
+        .max-w-xl { max-width: 36rem; }
+        .max-w-2xl { max-width: 42rem; }
+        .max-w-3xl { max-width: 48rem; }
+        .max-w-4xl { max-width: 56rem; }
+        .max-w-5xl { max-width: 64rem; }
+        .max-w-6xl { max-width: 72rem; }
+        .max-w-7xl { max-width: 80rem; }
+        .max-w-20 { max-width: 5rem; }
+        
+        /* Test bubble styles */
+        .message-bubble {
+            max-width: 20rem;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            word-wrap: break-word;
+        }
+        
+        .message-bubble.user {
+            background-color: #0066CC;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.375rem;
+        }
+        
+        .message-bubble.assistant {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            color: #374151;
+            margin-right: auto;
+            border-bottom-left-radius: 0.375rem;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">✅ Tailwind CSS Configuration Test</h1>
+        
+        <div class="grid gap-6">
+            <!-- Max Width Tests -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Max Width Utilities Test</h2>
+                <div class="space-y-3">
+                    <div class="max-w-xs bg-blue-100 p-2 rounded">max-w-xs (20rem)</div>
+                    <div class="max-w-sm bg-green-100 p-2 rounded">max-w-sm (24rem)</div>
+                    <div class="max-w-md bg-yellow-100 p-2 rounded">max-w-md (28rem)</div>
+                    <div class="max-w-lg bg-red-100 p-2 rounded">max-w-lg (32rem)</div>
+                    <div class="max-w-xl bg-purple-100 p-2 rounded">max-w-xl (36rem)</div>
+                    <div class="max-w-2xl bg-indigo-100 p-2 rounded">max-w-2xl (42rem)</div>
+                </div>
+            </div>
+            
+            <!-- Message Bubble Tests -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Message Bubble Styles Test</h2>
+                <div class="space-y-4 max-w-md">
+                    <div class="message-bubble user">
+                        This is a user message bubble test
+                    </div>
+                    <div class="message-bubble assistant">
+                        This is an assistant message bubble test
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Standard Tailwind Tests -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Standard Tailwind Utilities Test</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="bg-blue-500 text-white p-4 rounded-lg">
+                        Background & Text Colors
+                    </div>
+                    <div class="border-2 border-gray-300 p-4 rounded-lg">
+                        Borders & Spacing
+                    </div>
+                    <div class="shadow-lg p-4 rounded-lg bg-gray-50">
+                        Shadows & Layout
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Responsive Tests -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Responsive Design Test</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-r from-blue-400 to-blue-600 text-white p-4 rounded-lg text-center">
+                        Responsive Grid
+                    </div>
+                    <div class="bg-gradient-to-r from-green-400 to-green-600 text-white p-4 rounded-lg text-center">
+                        Column 2
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-400 to-purple-600 text-white p-4 rounded-lg text-center">
+                        Column 3
+                    </div>
+                    <div class="bg-gradient-to-r from-pink-400 to-pink-600 text-white p-4 rounded-lg text-center">
+                        Column 4
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 p-4 bg-green-100 border border-green-300 rounded-lg">
+            <p class="text-green-800 font-semibold">
+                ✅ If you can see this page with proper styling, Tailwind CSS is working correctly!
+            </p>
+        </div>
+    </div>
+</body>
+</html>
