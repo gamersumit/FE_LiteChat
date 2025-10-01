@@ -50,8 +50,10 @@ export class SocketService {
       try {
         // For now, we'll use HTTP polling as a fallback since the backend uses TCP sockets
         // In a production environment, you'd typically use a WebSocket-to-TCP proxy
+        console.log('Socket service initialized for session:', this.sessionId);
         resolve();
       } catch (error) {
+        console.error('Failed to connect to socket:', error);
         reject(error);
       }
     });
@@ -98,6 +100,7 @@ export class SocketService {
 
       return socketResponse;
     } catch (error) {
+      console.error('Error sending chat message:', error);
       return {
         type: 'error',
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -154,6 +157,7 @@ export class SocketService {
       }
       return response.json();
     } catch (error) {
+      console.error('Error getting socket info:', error);
       return null;
     }
   }
@@ -175,6 +179,7 @@ export class SocketService {
     }
     this.connectionPromise = null;
     this.messageHandlers.clear();
+    console.log('Socket disconnected for session:', this.sessionId);
   }
 
   /**

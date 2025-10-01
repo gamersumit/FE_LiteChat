@@ -121,6 +121,7 @@ const SessionManagement: React.FC = () => {
       
     } catch (err) {
       setError('Failed to load sessions');
+      console.error('Session loading error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -139,6 +140,7 @@ const SessionManagement: React.FC = () => {
 
       setStats(mockStats);
     } catch (error) {
+      console.error('Failed to load session stats:', error);
     }
   };
 

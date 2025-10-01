@@ -123,6 +123,7 @@ const SessionHistory: React.FC = () => {
       setHistoryData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load session history');
+      console.error('Session history loading error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -151,6 +152,7 @@ const SessionHistory: React.FC = () => {
         window.URL.revokeObjectURL(url);
       }
     } catch (error) {
+      console.error('Export failed:', error);
     }
   };
 

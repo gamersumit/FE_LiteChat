@@ -105,6 +105,7 @@ const EmailVerification: React.FC = () => {
         }, 5000);
       }
     } catch (error) {
+      console.error('Failed to resend verification:', error);
     }
   };
 

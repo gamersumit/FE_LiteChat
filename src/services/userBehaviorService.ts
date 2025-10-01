@@ -434,6 +434,7 @@ export class UserBehaviorService {
         })
       }
     } catch (error) {
+      console.warn('Failed to load user behavior analytics from storage:', error)
     }
   }
 
@@ -442,6 +443,7 @@ export class UserBehaviorService {
       const data = Object.fromEntries(this.analytics)
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data))
     } catch (error) {
+      console.warn('Failed to save user behavior analytics to storage:', error)
     }
   }
 

@@ -108,6 +108,7 @@ const WebsiteDetails: React.FC = () => {
         await dispatch(triggerCrawl({ websiteId: website.id, maxPages: 10 })).unwrap();
         dispatch(showSuccessToast(`Crawl started for "${website.name}"`));
       } catch (error) {
+        console.error('Failed to start crawl:', error);
         dispatch(showErrorToast('Failed to start crawl', 'Please try again later'));
       }
     }
@@ -122,6 +123,7 @@ const WebsiteDetails: React.FC = () => {
         dispatch(showSuccessToast(`Website "${website.name}" deleted successfully`));
         navigate('/dashboard');
       } catch (error) {
+        console.error('Failed to delete website:', error);
         dispatch(showErrorToast('Failed to delete website', 'Please try again later'));
       }
     }

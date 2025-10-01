@@ -66,6 +66,7 @@ export class ConversationContextService {
       
       return context
     } catch (error) {
+      console.error('Context analysis failed:', error)
       return {
         ...this.getFallbackContext(),
         error: 'analysis_failed',
@@ -92,6 +93,7 @@ export class ConversationContextService {
       
       return updatedContext
     } catch (error) {
+      console.error('Failed to update context with new message:', error)
       return currentContext
     }
   }
@@ -133,6 +135,7 @@ export class ConversationContextService {
           shifts.push(shift)
         }
       } catch (error) {
+        console.warn('Failed to detect context shift at message', i, error)
       }
     }
 
@@ -239,6 +242,7 @@ export class ConversationContextService {
       
       localStorage.setItem(`context_${conversationId}`, JSON.stringify(contextData))
     } catch (error) {
+      console.error('Failed to persist context:', error)
     }
   }
 
@@ -256,6 +260,7 @@ export class ConversationContextService {
         }
       }
     } catch (error) {
+      console.error('Failed to retrieve persisted context:', error)
     }
     return null
   }

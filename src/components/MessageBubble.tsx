@@ -78,6 +78,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               className="text-xs text-red-600 hover:text-red-800 underline ml-1"
               onClick={() => {
                 // TODO: Implement retry functionality
+                console.log('Retry message:', message.id);
               }}
             >
               Retry

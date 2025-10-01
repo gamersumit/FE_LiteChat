@@ -32,6 +32,7 @@ export function PrivacyBanner({ userId, onConsentUpdate }: PrivacyBannerProps) {
       }, 300)
     } catch (error) {
       setIsAnimating(false)
+      console.error('Failed to update consent:', error)
     }
   }
 
@@ -50,6 +51,7 @@ export function PrivacyBanner({ userId, onConsentUpdate }: PrivacyBannerProps) {
       }, 300)
     } catch (error) {
       setIsAnimating(false)
+      console.error('Failed to update consent:', error)
     }
   }
 

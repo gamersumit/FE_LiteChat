@@ -220,6 +220,7 @@ const ScriptGenerator: React.FC = () => {
         });
       }, 300);
     } catch (error) {
+      console.error('Failed to generate script:', error);
       alert('Failed to generate script. Please try again.');
     } finally {
       setIsGeneratingScript(false);
@@ -590,6 +591,7 @@ export default function ChatLiteWidget() {
         });
       }, 2000);
     } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
     }
   };
 

@@ -95,6 +95,7 @@ const SessionHandoff: React.FC = () => {
         setTransfers(data.transfers || []);
       }
     } catch (error) {
+      console.error('Failed to load transfers:', error);
     }
   };
 

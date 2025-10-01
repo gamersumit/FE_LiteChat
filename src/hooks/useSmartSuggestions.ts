@@ -335,6 +335,7 @@ export function useSmartSuggestions(conversationId: string) {
         },
       }))
     } catch (error) {
+      console.error('Failed to track suggestion usage:', error)
     }
   }, [])
 
@@ -352,6 +353,7 @@ export function useSmartSuggestions(conversationId: string) {
       const userId = 'current-user' // This should come from context
       await suggestionServiceRef.current.learnFromFeedback(userId, feedbackHistory)
     } catch (error) {
+      console.error('Failed to process feedback history:', error)
     }
   }, [])
 

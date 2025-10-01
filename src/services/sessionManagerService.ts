@@ -427,6 +427,7 @@ export class SessionManagerService {
     try {
       localStorage.setItem(this.BACKUP_KEY, JSON.stringify(backup))
     } catch (error) {
+      console.error('Failed to create session backup:', error)
     }
   }
 
@@ -469,6 +470,7 @@ export class SessionManagerService {
       this.saveSessionsToStorage()
       return true
     } catch (error) {
+      console.error('Failed to restore from backup:', error)
       return false
     }
   }
@@ -542,6 +544,7 @@ export class SessionManagerService {
         })
       }
     } catch (error) {
+      console.error('Failed to load sessions from storage:', error)
     }
   }
 
@@ -564,6 +567,7 @@ export class SessionManagerService {
       
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data))
     } catch (error) {
+      console.error('Failed to save sessions to storage:', error)
     }
   }
 
@@ -611,6 +615,7 @@ export class SessionManagerService {
         })),
       }
     } catch (error) {
+      console.error('Failed to deserialize session:', error)
       return null
     }
   }

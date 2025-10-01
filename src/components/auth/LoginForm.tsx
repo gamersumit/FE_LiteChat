@@ -80,6 +80,7 @@ const LoginForm: React.FC = () => {
       const redirectTo = location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo);
     } catch (error) {
+      console.error('Login failed:', error);
     }
   };
 

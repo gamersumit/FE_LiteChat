@@ -506,6 +506,7 @@ export function useSessionManager(userId: string) {
       // Note: Conversation contexts and behavior patterns are already
       // stored in the session and will be available through the session object
     } catch (error) {
+      console.error('Failed to restore session data:', error)
     }
   }, [updatePreferences])
 

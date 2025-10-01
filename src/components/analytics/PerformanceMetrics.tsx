@@ -80,6 +80,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({ websiteId, days
       setData(performanceData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load performance metrics');
+      console.error('Performance metrics loading error:', err);
     } finally {
       setIsLoading(false);
     }

@@ -30,6 +30,7 @@ export class WebSocketService {
         this.isIntentionallyClosed = false;
 
         this.ws.onopen = () => {
+          console.log('WebSocket connected');
           this.reconnectAttempts = 0;
           this.reconnectInterval = 1000;
           
@@ -46,10 +47,12 @@ export class WebSocketService {
               this.onMessageHandler(message);
             }
           } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
           }
         };
 
         this.ws.onclose = () => {
+          console.log('WebSocket disconnected');
           this.ws = null;
           
           if (this.onCloseHandler) {
@@ -63,6 +66,7 @@ export class WebSocketService {
         };
 
         this.ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
           if (this.onErrorHandler) {
             this.onErrorHandler(error);
           }
@@ -82,6 +86,7 @@ export class WebSocketService {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
+      console.error('WebSocket is not connected');
       throw new Error('WebSocket is not connected');
     }
   }
@@ -110,9 +115,11 @@ export class WebSocketService {
   private attemptReconnect(): void {
     this.reconnectAttempts++;
     
+    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
     
     setTimeout(() => {
       this.connect().catch((error) => {
+        console.error('Reconnection failed:', error);
         
         // Increase reconnect interval with exponential backoff
         this.reconnectInterval = Math.min(this.reconnectInterval * 2, 30000); // Max 30 seconds

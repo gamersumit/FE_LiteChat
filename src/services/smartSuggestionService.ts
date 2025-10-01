@@ -73,6 +73,7 @@ export class SmartSuggestionService {
 
       return filteredSuggestions
     } catch (error) {
+      console.error('Failed to generate quick replies:', error)
       return this.getFallbackQuickReplies()
     }
   }
@@ -94,6 +95,7 @@ export class SmartSuggestionService {
       
       return personalizedSuggestions.slice(0, 5)
     } catch (error) {
+      console.error('Failed to generate personalized suggestions:', error)
       return []
     }
   }
@@ -430,6 +432,7 @@ export class SmartSuggestionService {
       // Update user preferences based on feedback
       this.updatePreferencesFromFeedback(userId, feedback)
     } catch (error) {
+      console.error('Failed to track suggestion feedback:', error)
     }
   }
 

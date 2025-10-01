@@ -112,6 +112,7 @@ const AnalyticsDashboard: React.FC = () => {
       setLastUpdated(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics data');
+      console.error('Analytics loading error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +133,7 @@ const AnalyticsDashboard: React.FC = () => {
         }
       }
     } catch (error) {
+      console.error('Export failed:', error);
     }
   };
 

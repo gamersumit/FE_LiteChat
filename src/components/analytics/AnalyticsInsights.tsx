@@ -108,6 +108,7 @@ const AnalyticsInsights: React.FC<AnalyticsInsightsProps> = ({ websiteId, days }
       setData(insightsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics insights');
+      console.error('Analytics insights loading error:', err);
     } finally {
       setIsLoading(false);
     }

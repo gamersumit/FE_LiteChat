@@ -70,6 +70,7 @@ const SessionAnalyticsChart: React.FC<SessionAnalyticsChartProps> = ({ websiteId
       setData(sessionData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load session analytics');
+      console.error('Session analytics loading error:', err);
     } finally {
       setIsLoading(false);
     }

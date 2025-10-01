@@ -126,6 +126,7 @@
           return cachedConfig;
         }
       } catch (error) {
+        console.warn('Failed to load config from cache:', error);
       }
       return null;
     }
@@ -134,6 +135,7 @@
       try {
         localStorage.setItem(`widget_config_${this.widgetId}`, JSON.stringify(config));
       } catch (error) {
+        console.warn('Failed to save config to cache:', error);
       }
     }
 
@@ -179,14 +181,16 @@
         return config;
 
       } catch (error) {
+        console.error('Failed to fetch configuration:', error);
         updateConnectionStatus('error');
-
+        
         // Try to return cached config on error
         const cached = this.loadFromCache();
         if (cached) {
+          console.warn('Using cached configuration due to fetch error');
           return cached;
         }
-
+        
         throw error;
       }
     }
@@ -199,15 +203,18 @@
       const poll = async () => {
         try {
           const config = await this.fetchConfiguration();
-
+          
           if (this.currentVersion !== config.version) {
+            console.log('Configuration updated, version:', config.version);
             updateWidgetConfiguration(config);
           }
-
+          
         } catch (error) {
           this.retryCount++;
-
+          console.error(`Polling error (attempt ${this.retryCount}):`, error);
+          
           if (this.retryCount >= this.maxRetries) {
+            console.error('Max retries reached, stopping polling');
             this.stopPolling();
             updateConnectionStatus('failed');
             return;
@@ -529,6 +536,8 @@
   }
 
   function updateWidgetConfiguration(newConfig) {
+    console.log('Updating widget configuration:', newConfig);
+    
     widgetConfig = newConfig;
     
     // Update styles
@@ -815,7 +824,9 @@
     try {
       const widgetId = getWidgetId();
       const baseUrl = detectBaseUrl();
-
+      
+      console.log(`Initializing LiteChat widget: ${widgetId}`);
+      
       // Initialize configuration client
       configClient = new WidgetConfigClient(widgetId, baseUrl);
       styleInjector = new StyleInjector(widgetId);
@@ -823,6 +834,7 @@
       // Try to load cached configuration first
       let cachedConfig = configClient.loadFromCache();
       if (cachedConfig) {
+        console.log('Using cached configuration');
         widgetConfig = cachedConfig;
         renderWidget();
       }
@@ -831,9 +843,11 @@
       try {
         const latestConfig = await configClient.fetchConfiguration();
         if (JSON.stringify(latestConfig) !== JSON.stringify(cachedConfig)) {
+          console.log('Configuration updated from server');
           updateWidgetConfiguration(latestConfig);
         }
       } catch (error) {
+        console.warn('Failed to fetch latest configuration, using cached/default:', error);
         if (!widgetConfig) {
           widgetConfig = {
             widget_id: widgetId,
@@ -847,8 +861,12 @@
       
       // Start polling for updates
       configClient.startPolling();
-
+      
+      console.log('LiteChat widget initialized successfully');
+      
     } catch (error) {
+      console.error('Failed to initialize LiteChat widget:', error);
+      
       // Fallback to default configuration
       const widgetId = getWidgetId();
       widgetConfig = {

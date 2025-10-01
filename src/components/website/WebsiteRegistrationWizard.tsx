@@ -171,6 +171,7 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
       navigate('/dashboard');
 
     } catch (error) {
+      console.error('Error creating website:', error);
       let errorMessage = 'Failed to create website. Please try again.';
 
       // Handle different error types

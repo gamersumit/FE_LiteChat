@@ -598,6 +598,7 @@ export class AdaptiveThemeService {
         })
       }
     } catch (error) {
+      console.warn('Failed to load adaptive theme configs from storage:', error)
     }
   }
 
@@ -606,6 +607,7 @@ export class AdaptiveThemeService {
       const data = Object.fromEntries(this.themes)
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data))
     } catch (error) {
+      console.warn('Failed to save adaptive theme configs to storage:', error)
     }
   }
 }

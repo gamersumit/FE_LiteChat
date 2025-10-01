@@ -36,6 +36,7 @@ export const useTokenRefresh = () => {
       );
       return JSON.parse(jsonPayload);
     } catch (error) {
+      console.error('Failed to decode token:', error);
       return null;
     }
   }, []);
@@ -80,12 +81,15 @@ export const useTokenRefresh = () => {
       const result = await dispatch(refreshAuthToken());
 
       if (refreshAuthToken.fulfilled.match(result)) {
+        console.log('Token refreshed successfully');
         return true;
       } else {
+        console.error('Token refresh failed:', result.payload);
         return false;
       }
 
     } catch (error) {
+      console.error('Token refresh failed:', error);
       return false;
 
     } finally {
@@ -131,6 +135,7 @@ export const useTokenRefresh = () => {
       });
     }, timeUntilRefresh);
 
+    console.log(`Token refresh scheduled in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
   }, [tokenExpiresAt, isAuthenticated, shouldRefresh, refreshToken, dispatch]);
 
   /**
@@ -143,6 +148,7 @@ export const useTokenRefresh = () => {
 
     // Check if token needs immediate refresh
     if (shouldRefresh) {
+      console.log('Token expires soon, refreshing immediately');
       refreshToken().then(success => {
         if (success) {
           scheduleTokenRefresh();

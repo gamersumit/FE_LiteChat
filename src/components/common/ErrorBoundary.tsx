@@ -67,6 +67,14 @@ function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
 }
 
 function logError(error: Error, errorInfo: ErrorInfo) {
+  // Log to console in development
+  if (import.meta.env.MODE === 'development') {
+    console.group('🚨 Error Boundary Caught an Error');
+    console.error('Error:', error);
+    console.error('Component Stack:', errorInfo.componentStack);
+    console.groupEnd();
+  }
+
   // In production, you would send this to your error reporting service
   // Example: Sentry, LogRocket, etc.
   if (import.meta.env.MODE === 'production') {

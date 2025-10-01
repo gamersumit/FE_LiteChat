@@ -49,6 +49,7 @@ function validateConfig(): void {
   );
 
   if (missingVars.length > 0) {
+    console.error('Missing required environment variables:', missingVars);
     throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
   }
 }
@@ -97,6 +98,7 @@ export const config: AppConfig = {
 
 // Log configuration in development
 if (config.features.enableDebug && config.environment === 'development') {
+  console.log('App configuration:', config);
 }
 
 export default config;

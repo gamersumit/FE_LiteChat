@@ -75,6 +75,7 @@ const Dashboard: React.FC = () => {
   const isLoading = false; // websitesLoading || metricsLoading || chatStatsLoading;
 
   // Debug loading states
+  console.log('Loading states:', {
     websitesLoading,
     metricsLoading,
     chatStatsLoading,
@@ -84,6 +85,7 @@ const Dashboard: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('Dashboard useEffect triggered:', { isAuthenticated, isRefreshing });
 
     // Don't redirect if we're in the middle of a token refresh
     if (!isAuthenticated && !isRefreshing) {
@@ -93,6 +95,7 @@ const Dashboard: React.FC = () => {
 
     // Always load data when component mounts (includes F5 refresh)
     if (isAuthenticated) {
+      console.log('Dashboard: Loading fresh data on component mount (F5 refresh or navigation)');
       loadDashboardData();
       const timestamp = Date.now().toString();
       localStorage.setItem('dashboard_last_fetch', timestamp);
@@ -141,6 +144,7 @@ const Dashboard: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
+      console.log('Dashboard: Fetching all APIs...');
 
       // Fetch all dashboard data in parallel
       const promises = [
@@ -149,8 +153,10 @@ const Dashboard: React.FC = () => {
       ];
 
       await Promise.all(promises);
+      console.log('Dashboard: All APIs loaded successfully');
 
     } catch (error) {
+      console.error('Failed to load dashboard data:', error);
       dispatch(showErrorToast('Failed to load dashboard data', 'Please refresh the page or try again later'));
     }
   };

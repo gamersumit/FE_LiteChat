@@ -47,6 +47,7 @@ export function ConsentManager({
       onConsentUpdate?.(localConsent)
       onClose()
     } catch (error) {
+      console.error('Failed to save consent:', error)
     }
   }
 
@@ -68,6 +69,7 @@ export function ConsentManager({
         URL.revokeObjectURL(url)
       }
     } catch (error) {
+      console.error('Failed to export data:', error)
     } finally {
       setIsExporting(false)
     }
@@ -91,6 +93,7 @@ export function ConsentManager({
         onClose()
       }
     } catch (error) {
+      console.error('Failed to delete data:', error)
     } finally {
       setIsDeleting(false)
     }

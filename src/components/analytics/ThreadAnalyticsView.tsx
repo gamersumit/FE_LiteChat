@@ -86,6 +86,7 @@ const ThreadAnalyticsView: React.FC<ThreadAnalyticsViewProps> = ({ websiteId, da
       setData(threadData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load thread analytics');
+      console.error('Thread analytics loading error:', err);
     } finally {
       setIsLoading(false);
     }

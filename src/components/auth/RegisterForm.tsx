@@ -144,6 +144,7 @@ const RegisterForm: React.FC = () => {
         navigate('/login', { state: { message: 'Registration successful! Please login with your credentials.' } });
       }, 2000);
     } catch (error) {
+      console.error('Registration failed:', error);
     }
   };
 

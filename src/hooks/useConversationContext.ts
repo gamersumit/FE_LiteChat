@@ -73,6 +73,7 @@ export function useConversationContext(conversationId: string) {
           }))
         }
       } catch (error) {
+        console.warn('Failed to load persisted context:', error)
       }
     }
 
@@ -155,6 +156,7 @@ export function useConversationContext(conversationId: string) {
         contextShifts: shifts,
       }))
     } catch (error) {
+      console.error('Failed to analyze context shifts:', error)
     }
   }, [])
 
@@ -176,6 +178,7 @@ export function useConversationContext(conversationId: string) {
     try {
       return await contextServiceRef.current.getAdaptedResponseStyle(state.currentContext)
     } catch (error) {
+      console.error('Failed to get adapted response style:', error)
       return null
     }
   }, [state.currentContext])

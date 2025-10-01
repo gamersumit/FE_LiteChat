@@ -99,6 +99,7 @@ const Websites: React.FC = () => {
       const isStale = lastFetch === 0 || (Date.now() - lastFetch) > 300000; // 5 minutes
 
       // Debug logging
+      console.log('Websites useEffect:', {
         websites: websites.length,
         hasData,
         lastFetch,
@@ -120,6 +121,7 @@ const Websites: React.FC = () => {
       // Use new consolidated API to get websites with metrics
       await dispatch(fetchWebsitesWithMetrics({ page, limit })).unwrap();
     } catch (error) {
+      console.error('Failed to load websites:', error);
       dispatch(showErrorToast('Failed to load websites', 'Please refresh the page or try again later'));
     }
   };
@@ -141,6 +143,7 @@ const Websites: React.FC = () => {
         await dispatch(triggerCrawl({ websiteId: selectedWebsite.id, maxPages: 10 })).unwrap();
         dispatch(showSuccessToast(`Crawl started for "${selectedWebsite.name}"`));
       } catch (error) {
+        console.error('Failed to start crawl:', error);
         dispatch(showErrorToast('Failed to start crawl', 'Please try again later'));
       }
     }
@@ -189,6 +192,7 @@ const Websites: React.FC = () => {
         await dispatch(deleteWebsite(websiteId)).unwrap();
         dispatch(showSuccessToast(`Website "${websiteName}" deleted successfully`));
       } catch (error) {
+        console.error('Failed to delete website:', error);
         dispatch(showErrorToast('Failed to delete website', 'Please try again later'));
       }
     }
