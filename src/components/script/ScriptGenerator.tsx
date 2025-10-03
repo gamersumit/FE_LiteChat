@@ -28,7 +28,7 @@ import {
   Settings,
   Zap,
   BookOpen,
-  ExternalLink,
+  Maximize2,
   ChevronDown,
   ChevronRight,
   AlertCircle,
@@ -122,6 +122,18 @@ const ScriptGenerator: React.FC = () => {
   const [copiedItems, setCopiedItems] = useState<Set<string>>(new Set());
   const [previewDevice, setPreviewDevice] = useState('desktop');
   const [activeScriptType, setActiveScriptType] = useState<'html' | 'wordpress' | 'react' | 'nextjs'>('html');
+  const [iframeError, setIframeError] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [previewChatOpen, setPreviewChatOpen] = useState(true);
+  const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
+  const iframeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const iframeLoadedRef = useRef(false);
+
+  // Separate state for fullscreen modal iframe
+  const [fullscreenIframeError, setFullscreenIframeError] = useState(false);
+  const [fullscreenIframeLoading, setFullscreenIframeLoading] = useState(true);
+  const fullscreenIframeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fullscreenIframeLoadedRef = useRef(false);
 
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [generatedScript, setGeneratedScript] = useState<string>('');
@@ -152,6 +164,53 @@ const ScriptGenerator: React.FC = () => {
   useEffect(() => {
     initializeWebsiteSelection();
   }, [websites, searchParams]);
+
+  // Reset iframe state when website URL changes
+  useEffect(() => {
+    // Clear any existing timeout
+    if (iframeTimeoutRef.current) {
+      clearTimeout(iframeTimeoutRef.current);
+      iframeTimeoutRef.current = null;
+    }
+
+    // Only proceed if we have a website URL
+    if (selectedWebsite?.url) {
+      console.log('Resetting iframe state for:', selectedWebsite.url);
+      setIframeError(false);
+      setIframeLoading(true);
+      iframeLoadedRef.current = false;
+    }
+
+    return () => {
+      if (iframeTimeoutRef.current) {
+        clearTimeout(iframeTimeoutRef.current);
+        iframeTimeoutRef.current = null;
+      }
+    };
+  }, [selectedWebsite?.url]); // Only depend on URL, not the whole object
+
+  // Reset fullscreen iframe state when modal opens or website URL changes
+  useEffect(() => {
+    // Clear any existing timeout
+    if (fullscreenIframeTimeoutRef.current) {
+      clearTimeout(fullscreenIframeTimeoutRef.current);
+      fullscreenIframeTimeoutRef.current = null;
+    }
+
+    if (showFullscreenPreview && selectedWebsite?.url) {
+      console.log('Resetting fullscreen iframe state for:', selectedWebsite.url);
+      setFullscreenIframeError(false);
+      setFullscreenIframeLoading(true);
+      fullscreenIframeLoadedRef.current = false;
+    }
+
+    return () => {
+      if (fullscreenIframeTimeoutRef.current) {
+        clearTimeout(fullscreenIframeTimeoutRef.current);
+        fullscreenIframeTimeoutRef.current = null;
+      }
+    };
+  }, [showFullscreenPreview, selectedWebsite?.url]); // Only depend on URL, not the whole object
 
   const toggleInstallationSection = (section: string) => {
     setExpandedInstallationSection(prev => {
@@ -644,11 +703,10 @@ export default function ChatLiteWidget() {
                 setShowIntegrationGuide(!showIntegrationGuide);
                 setShowTroubleshoot(false);
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                showIntegrationGuide
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${showIntegrationGuide
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-              }`}
+                }`}
             >
               <List className="w-4 h-4" />
               <span>Integration Guide</span>
@@ -659,11 +717,10 @@ export default function ChatLiteWidget() {
                 setShowTroubleshoot(!showTroubleshoot);
                 setShowIntegrationGuide(false);
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                showTroubleshoot
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${showTroubleshoot
                   ? 'bg-red-600 text-white shadow-lg'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-              }`}
+                }`}
             >
               <Wrench className="w-4 h-4" />
               <span>Troubleshoot</span>
@@ -694,10 +751,10 @@ export default function ChatLiteWidget() {
                 <option disabled>No websites available - Please add a website first</option>
               ) : (
                 websites.map(website => (
-                <option key={website.id} value={website.id}>
-                  {website.name} ({website.domain})
-                </option>
-              ))
+                  <option key={website.id} value={website.id}>
+                    {website.name} ({website.domain})
+                  </option>
+                ))
               )}
             </select>
 
@@ -924,11 +981,10 @@ export default function ChatLiteWidget() {
                           setScriptNeedsRegeneration(false);
                         }
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                        activeScriptType === type.id
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeScriptType === type.id
                           ? 'bg-purple-600 text-white font-medium'
                           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      }`}
+                        }`}
                     >
                       {type.label}
                     </button>
@@ -1052,6 +1108,13 @@ export default function ChatLiteWidget() {
               </div>
 
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowFullscreenPreview(true)}
+                  className="p-2 rounded-md transition-colors text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                  title="Fullscreen Preview"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
                 {[
                   { id: 'desktop', icon: Monitor, label: 'Desktop' },
                   { id: 'tablet', icon: Tablet, label: 'Tablet' },
@@ -1062,11 +1125,10 @@ export default function ChatLiteWidget() {
                     <button
                       key={device.id}
                       onClick={() => setPreviewDevice(device.id)}
-                      className={`p-2 rounded-md transition-colors ${
-                        previewDevice === device.id
+                      className={`p-2 rounded-md transition-colors ${previewDevice === device.id
                           ? 'bg-blue-600 text-white'
                           : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-                      }`}
+                        }`}
                       title={device.label}
                     >
                       <Icon className="w-4 h-4" />
@@ -1079,54 +1141,113 @@ export default function ChatLiteWidget() {
             {/* Preview Container */}
             <div className="flex justify-center">
               <div className={`
-                ${
-                  previewDevice === 'desktop' ? 'w-full max-w-4xl h-[600px]' :
+                ${previewDevice === 'desktop' ? 'w-full max-w-4xl h-[600px]' :
                   previewDevice === 'tablet' ? 'w-96 h-[700px]' :
-                  'w-72 h-[600px]'
+                    'w-72 h-[600px]'
                 }
                 bg-white rounded-lg relative overflow-hidden border-2 border-gray-600 shadow-lg
               `}>
                 {/* Mock Website Header */}
-                <div className={`bg-gray-800 flex items-center ${
-                  previewDevice === 'mobile' ? 'h-8 px-3' : 'h-10 px-4'
-                }`}>
+                <div className={`bg-gray-800 flex items-center ${previewDevice === 'mobile' ? 'h-8 px-3' : 'h-10 px-4'
+                  }`}>
                   <div className="flex space-x-2">
-                    <div className={`rounded-full bg-red-500 ${
-                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                    }`}></div>
-                    <div className={`rounded-full bg-yellow-500 ${
-                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                    }`}></div>
-                    <div className={`rounded-full bg-green-500 ${
-                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                    }`}></div>
+                    <div className={`rounded-full bg-red-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                      }`}></div>
+                    <div className={`rounded-full bg-yellow-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                      }`}></div>
+                    <div className={`rounded-full bg-green-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                      }`}></div>
                   </div>
-                  <div className={`ml-3 text-white ${
-                    previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                  }`}>{selectedWebsite?.domain || 'yourwebsite.com'}</div>
+                  <div className={`ml-3 text-white ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                    }`}>{selectedWebsite?.domain || 'yourwebsite.com'}</div>
                 </div>
 
-                {/* Mock Website Content */}
-                <div className={`space-y-4 ${
-                  previewDevice === 'mobile' ? 'p-4' : 'p-6'
-                }`}>
-                  <div className={`font-bold text-gray-900 ${
-                    previewDevice === 'mobile' ? 'text-lg' : 'text-2xl'
-                  }`}>Your Website</div>
-                  <div className={`text-gray-600 ${
-                    previewDevice === 'mobile' ? 'text-sm' : 'text-base'
-                  }`}>This is how your chat widget will appear to visitors</div>
-                  <div className="space-y-2">
-                    <div className={`bg-gray-200 rounded w-3/4 ${
-                      previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                    }`}></div>
-                    <div className={`bg-gray-200 rounded w-1/2 ${
-                      previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                    }`}></div>
-                    <div className={`bg-gray-200 rounded w-2/3 ${
-                      previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                    }`}></div>
-                  </div>
+                {/* Website Content - Priority: Screenshot > Iframe > Fallback */}
+                <div className="relative h-full">
+                  {selectedWebsite?.screenshot_url ? (
+                    // Show screenshot if available (primary)
+                    <div className="absolute inset-0 overflow-hidden">
+                      <img
+                        src={selectedWebsite.screenshot_url}
+                        alt={`Screenshot of ${selectedWebsite.domain}`}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  ) : selectedWebsite?.url ? (
+                    // Try iframe if no screenshot (secondary)
+                    <>
+                      {iframeLoading && (
+                        <div className={`absolute inset-0 flex items-center justify-center bg-white space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                          }`}>
+                          <div className="text-center">
+                            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                            <div className="text-gray-600 text-sm">Loading website...</div>
+                          </div>
+                        </div>
+                      )}
+                      {!iframeError ? (
+                        <iframe
+                          key={selectedWebsite.url}
+                          src={selectedWebsite.url}
+                          className="w-full h-full border-0"
+                          style={{ pointerEvents: 'auto' }}
+                          onLoad={(e) => {
+                            console.log('Iframe loaded successfully', e.currentTarget.src);
+                            iframeLoadedRef.current = true;
+                            if (iframeTimeoutRef.current) {
+                              clearTimeout(iframeTimeoutRef.current);
+                              iframeTimeoutRef.current = null;
+                            }
+                            setIframeLoading(false);
+                            setIframeError(false);
+                          }}
+                          onError={(e) => {
+                            console.error('Iframe failed to load:', e.currentTarget.src);
+                            if (iframeTimeoutRef.current) {
+                              clearTimeout(iframeTimeoutRef.current);
+                              iframeTimeoutRef.current = null;
+                            }
+                            setIframeError(true);
+                            setIframeLoading(false);
+                          }}
+                          title="Website Preview"
+                        />
+                      ) : (
+                        // Show fallback if iframe failed and no screenshot
+                        <div className={`space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                          }`}>
+                          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-start space-x-2">
+                              <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <div className="text-xs font-medium text-blue-900 mb-1">Preview Not Available</div>
+                                <div className="text-xs text-blue-800 leading-relaxed">
+                                  This website blocks iframe embedding for security. This is normal for sites like ChatGPT, banks, and many corporate sites. Your chat widget will work perfectly when installed on your actual website.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Default fallback - no website selected
+                    <div className={`space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                      }`}>
+                      <div className={`font-bold text-gray-900 ${previewDevice === 'mobile' ? 'text-lg' : 'text-2xl'
+                        }`}>Your Website</div>
+                      <div className={`text-gray-600 ${previewDevice === 'mobile' ? 'text-sm' : 'text-base'
+                        }`}>This is how your chat widget will appear to visitors</div>
+                      <div className="space-y-2">
+                        <div className={`bg-gray-200 rounded w-3/4 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                          }`}></div>
+                        <div className={`bg-gray-200 rounded w-1/2 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                          }`}></div>
+                        <div className={`bg-gray-200 rounded w-2/3 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                          }`}></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Chat Widget Preview */}
@@ -1151,131 +1272,124 @@ export default function ChatLiteWidget() {
                   }[config.widget_position]
                 }}>
 
-                  {/* Chat Interface - Always visible for preview */}
-                  <div
-                    className="bg-white rounded-lg shadow-2xl border-2 mb-3 absolute z-10"
-                    style={{
-                      width: previewDevice === 'mobile' ? '240px' : previewDevice === 'tablet' ? '280px' : '320px',
-                      height: previewDevice === 'mobile' ? '320px' : previewDevice === 'tablet' ? '380px' : '420px',
-                      borderColor: config.widget_color,
-                      borderRadius: config.border_radius + 'px',
-                      ...{
-                        'bottom-right': {
-                          bottom: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
-                          right: '0'
-                        },
-                        'bottom-left': {
-                          bottom: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
-                          left: '0'
-                        },
-                        'top-right': {
-                          top: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
-                          right: '0'
-                        },
-                        'top-left': {
-                          top: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
-                          left: '0'
-                        }
-                      }[config.widget_position]
-                    }}
-                  >
-                    {/* Chat Header */}
+                  {/* Chat Interface - Toggleable */}
+                  {previewChatOpen && (
                     <div
-                      className={`flex items-center justify-between text-white ${
-                        previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                      }`}
+                      className="bg-white rounded-lg shadow-2xl border-2 mb-3 absolute z-10 transition-all duration-300"
                       style={{
-                        backgroundColor: config.widget_color,
-                        borderTopLeftRadius: config.border_radius + 'px',
-                        borderTopRightRadius: config.border_radius + 'px'
+                        width: previewDevice === 'mobile' ? '240px' : previewDevice === 'tablet' ? '280px' : '320px',
+                        height: previewDevice === 'mobile' ? '320px' : previewDevice === 'tablet' ? '380px' : '420px',
+                        borderColor: config.widget_color,
+                        borderRadius: config.border_radius + 'px',
+                        ...{
+                          'bottom-right': {
+                            bottom: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
+                            right: '0'
+                          },
+                          'bottom-left': {
+                            bottom: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
+                            left: '0'
+                          },
+                          'top-right': {
+                            top: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
+                            right: '0'
+                          },
+                          'top-left': {
+                            top: previewDevice === 'mobile' ? '50px' : previewDevice === 'tablet' ? '60px' : '70px',
+                            left: '0'
+                          }
+                        }[config.widget_position]
                       }}
                     >
-                      <div className="flex items-center space-x-2">
-                        <div className={`bg-white/20 rounded-full flex items-center justify-center ${
-                          previewDevice === 'mobile' ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
-                        }`}>
-                          💬
-                        </div>
-                        <div>
-                          <div className={`font-semibold ${
-                            previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                          }`}>Support Chat</div>
-                          <div className={`opacity-80 ${
-                            previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
-                          }`}>Online now</div>
-                        </div>
-                      </div>
-                      <button className={`text-white/60 hover:text-white ${
-                        previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                      }`}>✕</button>
-                    </div>
-
-                    {/* Chat Messages */}
-                    <div
-                      className={`flex-1 space-y-2 overflow-y-auto ${
-                        previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                      }`}
-                      style={{
-                        height: previewDevice === 'mobile' ? '200px' : previewDevice === 'tablet' ? '250px' : '280px'
-                      }}
-                    >
-                      <div className={`flex items-start ${
-                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                      }`}>
-                        <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
-                          previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
-                        }`}>👤</div>
-                        <div className={`bg-gray-100 rounded-lg max-w-xs ${
-                          previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
-                        }`}>
-                          <div className={`text-gray-800 ${
-                            previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
-                          }`}>{config.welcome_message || "Hello! How can I help you today?"}</div>
-                        </div>
-                      </div>
-                      <div className={`flex items-start justify-end ${
-                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                      }`}>
-                        <div
-                          className={`text-white rounded-lg max-w-xs ${
-                            previewDevice === 'mobile' ? 'px-2 py-1 text-xs' : 'px-2 py-1 text-xs'
+                      {/* Chat Header */}
+                      <div
+                        className={`flex items-center justify-between text-white ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
                           }`}
-                          style={{ backgroundColor: config.widget_color }}
-                        >
-                          Hi, I need some help with...
+                        style={{
+                          backgroundColor: config.widget_color,
+                          borderTopLeftRadius: config.border_radius + 'px',
+                          borderTopRightRadius: config.border_radius + 'px'
+                        }}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div className={`bg-white/20 rounded-full flex items-center justify-center ${previewDevice === 'mobile' ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
+                            }`}>
+                            💬
+                          </div>
+                          <div>
+                            <div className={`font-semibold ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                              }`}>Support Chat</div>
+                            <div className={`opacity-80 ${previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                              }`}>Online now</div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Chat Input */}
-                    <div className={`border-t border-gray-200 ${
-                      previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                    }`}>
-                      <div className="flex items-center space-x-1">
-                        <input
-                          type="text"
-                          placeholder={config.placeholder_text || "Type your message..."}
-                          className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-500 placeholder-gray-400 ${
-                            previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
-                          }`}
-                          readOnly
-                          value=""
-                        />
                         <button
-                          className={`text-white rounded flex-shrink-0 whitespace-nowrap ${
-                            previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
-                          }`}
-                          style={{ backgroundColor: config.widget_color }}
+                          onClick={() => setPreviewChatOpen(false)}
+                          className={`text-white/60 hover:text-white transition-colors ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                            }`}
                         >
-                          Send
+                          ✕
                         </button>
                       </div>
+
+                      {/* Chat Messages */}
+                      <div
+                        className={`flex-1 space-y-2 overflow-y-auto ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
+                          }`}
+                        style={{
+                          height: previewDevice === 'mobile' ? '200px' : previewDevice === 'tablet' ? '250px' : '280px'
+                        }}
+                      >
+                        <div className={`flex items-start ${previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
+                          }`}>
+                          <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
+                            }`}>👤</div>
+                          <div className={`bg-gray-100 rounded-lg max-w-xs ${previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
+                            }`}>
+                            <div className={`text-gray-800 ${previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                              }`}>{config.welcome_message || "Hello! How can I help you today?"}</div>
+                          </div>
+                        </div>
+                        <div className={`flex items-start justify-end ${previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
+                          }`}>
+                          <div
+                            className={`text-white rounded-lg max-w-xs ${previewDevice === 'mobile' ? 'px-2 py-1 text-xs' : 'px-2 py-1 text-xs'
+                              }`}
+                            style={{ backgroundColor: config.widget_color }}
+                          >
+                            Hi, I need some help with...
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Chat Input */}
+                      <div className={`border-t border-gray-200 ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
+                        }`}>
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            placeholder={config.placeholder_text || "Type your message..."}
+                            className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-500 placeholder-gray-400 ${previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
+                              }`}
+                            readOnly
+                            value=""
+                          />
+                          <button
+                            className={`text-white rounded flex-shrink-0 whitespace-nowrap ${previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
+                              }`}
+                            style={{ backgroundColor: config.widget_color }}
+                          >
+                            Send
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Chat Button */}
-                  <div
-                    className="rounded-full shadow-lg cursor-pointer flex items-center justify-center text-white"
+                  <button
+                    onClick={() => setPreviewChatOpen(!previewChatOpen)}
+                    className="rounded-full shadow-lg cursor-pointer flex items-center justify-center text-white hover:scale-110 transition-transform duration-200 focus:outline-none"
                     style={{
                       width: (() => {
                         const baseSize = config.widget_size === 'small' ? 50 : config.widget_size === 'large' ? 70 : 60;
@@ -1293,7 +1407,7 @@ export default function ChatLiteWidget() {
                     }}
                   >
                     💬
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1788,6 +1902,264 @@ export default function ChatLiteWidget() {
                       </a>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fullscreen Preview Modal */}
+        {showFullscreenPreview && (
+          <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gray-900 border-b border-gray-700 p-4">
+              <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-500/20 rounded-lg">
+                      <Eye className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Live Preview</h2>
+                      <p className="text-sm text-gray-400">{selectedWebsite?.domain}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 ml-8">
+                    {[
+                      { id: 'desktop', icon: Monitor, label: 'Desktop' },
+                      { id: 'tablet', icon: Tablet, label: 'Tablet' },
+                      { id: 'mobile', icon: Smartphone, label: 'Mobile' }
+                    ].map(device => {
+                      const Icon = device.icon;
+                      return (
+                        <button
+                          key={device.id}
+                          onClick={() => setPreviewDevice(device.id)}
+                          className={`p-2 rounded-md transition-colors ${previewDevice === device.id
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                            }`}
+                          title={device.label}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowFullscreenPreview(false)}
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
+              <div className={`
+                ${previewDevice === 'desktop' ? 'w-full h-full' :
+                  previewDevice === 'tablet' ? 'w-[768px] h-[1024px]' :
+                    'w-[375px] h-[667px]'
+                }
+                bg-white rounded-lg relative overflow-hidden shadow-2xl
+              `}>
+                {/* Mock Website Header */}
+                <div className="bg-gray-800 h-10 px-4 flex items-center">
+                  <div className="flex space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  <div className="ml-3 text-white text-sm">{selectedWebsite?.domain || 'yourwebsite.com'}</div>
+                </div>
+
+                {/* Website Content - Priority: Screenshot > Iframe > Fallback */}
+                <div className="relative h-[calc(100%-40px)]">
+                  {selectedWebsite?.screenshot_url ? (
+                    // Show screenshot if available (primary)
+                    <div className="absolute inset-0 overflow-hidden">
+                      <img
+                        src={selectedWebsite.screenshot_url}
+                        alt={`Screenshot of ${selectedWebsite.domain}`}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  ) : selectedWebsite?.url ? (
+                    // Try iframe if no screenshot (secondary)
+                    <>
+                      {fullscreenIframeLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white">
+                          <div className="text-center">
+                            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                            <div className="text-gray-600">Loading website...</div>
+                          </div>
+                        </div>
+                      )}
+                      {!fullscreenIframeError ? (
+                        <iframe
+                          key={selectedWebsite.url}
+                          src={selectedWebsite.url}
+                          className="w-full h-full border-0"
+                          style={{ pointerEvents: 'auto' }}
+                          onLoad={(e) => {
+                            console.log('Fullscreen iframe loaded successfully', e.currentTarget.src);
+                            fullscreenIframeLoadedRef.current = true;
+                            if (fullscreenIframeTimeoutRef.current) {
+                              clearTimeout(fullscreenIframeTimeoutRef.current);
+                              fullscreenIframeTimeoutRef.current = null;
+                            }
+                            setFullscreenIframeLoading(false);
+                            setFullscreenIframeError(false);
+                          }}
+                          onError={(e) => {
+                            console.error('Fullscreen iframe failed to load:', e.currentTarget.src);
+                            if (fullscreenIframeTimeoutRef.current) {
+                              clearTimeout(fullscreenIframeTimeoutRef.current);
+                              fullscreenIframeTimeoutRef.current = null;
+                            }
+                            setFullscreenIframeError(true);
+                            setFullscreenIframeLoading(false);
+                          }}
+                          title="Website Preview Fullscreen"
+                        />
+                      ) : (
+                        // Show fallback if iframe failed and no screenshot
+                        <div className="p-8 h-full overflow-auto">
+                          <div className="mt-6 bg-blue-50 border border-blue-300 rounded-lg p-4">
+                            <div className="flex items-start space-x-3">
+                              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-blue-900 mb-2">Preview Not Available</div>
+                                <div className="text-sm text-blue-800 leading-relaxed">
+                                  This website blocks iframe embedding for security reasons. This is common for sites like ChatGPT, online banking, and many corporate websites. Rest assured, your chat widget will work perfectly when you install it on your actual website.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Default fallback - no website selected
+                    <div className="p-8 h-full overflow-auto">
+                      <div className="font-bold text-gray-900 text-3xl mb-4">Your Website</div>
+                      <div className="text-gray-600 text-lg mb-6">This is how your chat widget will appear to visitors</div>
+                      <div className="space-y-3">
+                        <div className="bg-gray-200 rounded h-6 w-3/4"></div>
+                        <div className="bg-gray-200 rounded h-6 w-1/2"></div>
+                        <div className="bg-gray-200 rounded h-6 w-2/3"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chat Widget Preview */}
+                <div className="absolute" style={{
+                  ...{
+                    'bottom-right': { bottom: '20px', right: '20px' },
+                    'bottom-left': { bottom: '20px', left: '20px' },
+                    'top-right': { top: '60px', right: '20px' },
+                    'top-left': { top: '60px', left: '20px' }
+                  }[config.widget_position]
+                }}>
+                  {/* Chat Interface - Toggleable */}
+                  {previewChatOpen && (
+                    <div
+                      className="bg-white rounded-lg shadow-2xl border-2 mb-3 absolute z-10 transition-all duration-300"
+                      style={{
+                        width: '360px',
+                        height: '520px',
+                        borderColor: config.widget_color,
+                        borderRadius: config.border_radius + 'px',
+                        ...{
+                          'bottom-right': { bottom: '80px', right: '0' },
+                          'bottom-left': { bottom: '80px', left: '0' },
+                          'top-right': { top: '80px', right: '0' },
+                          'top-left': { top: '80px', left: '0' }
+                        }[config.widget_position]
+                      }}
+                    >
+                      {/* Chat Header */}
+                      <div
+                        className="flex items-center justify-between text-white p-4"
+                        style={{
+                          backgroundColor: config.widget_color,
+                          borderTopLeftRadius: config.border_radius + 'px',
+                          borderTopRightRadius: config.border_radius + 'px'
+                        }}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">💬</div>
+                          <div>
+                            <div className="font-semibold">Support Chat</div>
+                            <div className="text-sm opacity-80">Online now</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setPreviewChatOpen(false)}
+                          className="text-white/60 hover:text-white transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Chat Messages */}
+                      <div className="p-4 space-y-3 overflow-y-auto" style={{ height: '380px' }}>
+                        <div className="flex items-start space-x-2">
+                          <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center text-xs">👤</div>
+                          <div className="bg-gray-100 rounded-lg px-3 py-2 max-w-xs">
+                            <div className="text-gray-800 text-sm">{config.welcome_message || "Hello! How can I help you today?"}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-end space-x-2">
+                          <div
+                            className="text-white rounded-lg px-3 py-2 max-w-xs text-sm"
+                            style={{ backgroundColor: config.widget_color }}
+                          >
+                            Hi, I need some help with...
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Chat Input */}
+                      <div className="border-t border-gray-200 p-3">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder={config.placeholder_text || "Type your message..."}
+                            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm min-w-0 bg-white text-gray-500 placeholder-gray-400"
+                            readOnly
+                            value=""
+                          />
+                          <button
+                            className="text-white rounded px-4 py-2 text-sm flex-shrink-0"
+                            style={{ backgroundColor: config.widget_color }}
+                          >
+                            Send
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chat Button */}
+                  <button
+                    onClick={() => setPreviewChatOpen(!previewChatOpen)}
+                    className="rounded-full shadow-lg cursor-pointer flex items-center justify-center text-white hover:scale-110 transition-transform duration-200 focus:outline-none"
+                    style={{
+                      width: config.widget_size === 'small' ? '60px' : config.widget_size === 'large' ? '80px' : '70px',
+                      height: config.widget_size === 'small' ? '60px' : config.widget_size === 'large' ? '80px' : '70px',
+                      fontSize: '24px',
+                      backgroundColor: config.widget_color,
+                      borderRadius: config.border_radius + 'px'
+                    }}
+                  >
+                    💬
+                  </button>
                 </div>
               </div>
             </div>
