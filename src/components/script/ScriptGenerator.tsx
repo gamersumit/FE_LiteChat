@@ -1166,11 +1166,11 @@ export default function ChatLiteWidget() {
                 <div className="relative h-full">
                   {selectedWebsite?.screenshot_url ? (
                     // Show screenshot if available (primary)
-                    <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
                       <img
                         src={selectedWebsite.screenshot_url}
                         alt={`Screenshot of ${selectedWebsite.domain}`}
-                        className="w-full h-full object-cover object-top"
+                        className="w-full object-cover object-top"
                       />
                     </div>
                   ) : selectedWebsite?.url ? (
@@ -1981,11 +1981,11 @@ export default function ChatLiteWidget() {
                 <div className="relative h-[calc(100%-40px)]">
                   {selectedWebsite?.screenshot_url ? (
                     // Show screenshot if available (primary)
-                    <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
                       <img
                         src={selectedWebsite.screenshot_url}
                         alt={`Screenshot of ${selectedWebsite.domain}`}
-                        className="w-full h-full object-cover object-top"
+                        className="w-full object-cover object-top"
                       />
                     </div>
                   ) : selectedWebsite?.url ? (
