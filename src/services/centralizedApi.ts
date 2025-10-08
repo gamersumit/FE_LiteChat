@@ -101,7 +101,7 @@ class CentralizedApiService {
   private pendingRequests: Map<string, Promise<any>> = new Map();
   private requestCache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
   private refreshingToken: boolean = false;
-  private tokenRefreshQueue: Array<{ resolve: Function, reject: Function }> = [];
+  private tokenRefreshQueue: Array<{resolve: Function, reject: Function}> = [];
 
   constructor(apiConfig?: Partial<ApiConfig>) {
     // Use imported config for defaults
@@ -350,13 +350,13 @@ class CentralizedApiService {
 
         // Don't retry on auth errors or client errors (4xx status codes)
         if (error instanceof Error &&
-          (error.message.includes('Authentication') ||
-            error.message.includes('forbidden') ||
-            error.message.includes('not found') ||
-            error.message.includes('Validation') ||
-            error.message.includes('Resource conflict') ||
-            error.message.includes('already exists') ||
-            error.message.includes('Conflict'))) {
+            (error.message.includes('Authentication') ||
+             error.message.includes('forbidden') ||
+             error.message.includes('not found') ||
+             error.message.includes('Validation') ||
+             error.message.includes('Resource conflict') ||
+             error.message.includes('already exists') ||
+             error.message.includes('Conflict'))) {
           break;
         }
 
@@ -369,9 +369,9 @@ class CentralizedApiService {
 
     // Final error notification if all retries failed
     if (!suppressErrorNotifications && lastError && !lastError.message.includes('Authentication') &&
-      !lastError.message.includes('forbidden') &&
-      !lastError.message.includes('not found') &&
-      !lastError.message.includes('Validation')) {
+        !lastError.message.includes('forbidden') &&
+        !lastError.message.includes('not found') &&
+        !lastError.message.includes('Validation')) {
       this.dispatchErrorNotification('error', 'Request Failed', lastError.message);
     }
 
@@ -737,7 +737,7 @@ class CentralizedApiService {
 
     this.requestCache.forEach((value, key) => {
       if (key.includes('/api/v1/dashboard/websites') ||
-        key.includes('/api/v1/dashboard/overview')) {
+          key.includes('/api/v1/dashboard/overview')) {
         keysToDelete.push(key);
       }
     });

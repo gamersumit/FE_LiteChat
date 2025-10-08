@@ -703,10 +703,11 @@ export default function ChatLiteWidget() {
                 setShowIntegrationGuide(!showIntegrationGuide);
                 setShowTroubleshoot(false);
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${showIntegrationGuide
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                showIntegrationGuide
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                }`}
+              }`}
             >
               <List className="w-4 h-4" />
               <span>Integration Guide</span>
@@ -717,10 +718,11 @@ export default function ChatLiteWidget() {
                 setShowTroubleshoot(!showTroubleshoot);
                 setShowIntegrationGuide(false);
               }}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${showTroubleshoot
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                showTroubleshoot
                   ? 'bg-red-600 text-white shadow-lg'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-                }`}
+              }`}
             >
               <Wrench className="w-4 h-4" />
               <span>Troubleshoot</span>
@@ -751,10 +753,10 @@ export default function ChatLiteWidget() {
                 <option disabled>No websites available - Please add a website first</option>
               ) : (
                 websites.map(website => (
-                  <option key={website.id} value={website.id}>
-                    {website.name} ({website.domain})
-                  </option>
-                ))
+                <option key={website.id} value={website.id}>
+                  {website.name} ({website.domain})
+                </option>
+              ))
               )}
             </select>
 
@@ -981,10 +983,11 @@ export default function ChatLiteWidget() {
                           setScriptNeedsRegeneration(false);
                         }
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeScriptType === type.id
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        activeScriptType === type.id
                           ? 'bg-purple-600 text-white font-medium'
                           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        }`}
+                      }`}
                     >
                       {type.label}
                     </button>
@@ -1125,10 +1128,11 @@ export default function ChatLiteWidget() {
                     <button
                       key={device.id}
                       onClick={() => setPreviewDevice(device.id)}
-                      className={`p-2 rounded-md transition-colors ${previewDevice === device.id
+                      className={`p-2 rounded-md transition-colors ${
+                        previewDevice === device.id
                           ? 'bg-blue-600 text-white'
                           : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-                        }`}
+                      }`}
                       title={device.label}
                     >
                       <Icon className="w-4 h-4" />
@@ -1141,25 +1145,31 @@ export default function ChatLiteWidget() {
             {/* Preview Container */}
             <div className="flex justify-center">
               <div className={`
-                ${previewDevice === 'desktop' ? 'w-full max-w-4xl h-[600px]' :
+                ${
+                  previewDevice === 'desktop' ? 'w-full max-w-4xl h-[600px]' :
                   previewDevice === 'tablet' ? 'w-96 h-[700px]' :
-                    'w-72 h-[600px]'
+                  'w-72 h-[600px]'
                 }
                 bg-white rounded-lg relative overflow-hidden border-2 border-gray-600 shadow-lg
               `}>
                 {/* Mock Website Header */}
-                <div className={`bg-gray-800 flex items-center ${previewDevice === 'mobile' ? 'h-8 px-3' : 'h-10 px-4'
-                  }`}>
+                <div className={`bg-gray-800 flex items-center ${
+                  previewDevice === 'mobile' ? 'h-8 px-3' : 'h-10 px-4'
+                }`}>
                   <div className="flex space-x-2">
-                    <div className={`rounded-full bg-red-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                      }`}></div>
-                    <div className={`rounded-full bg-yellow-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                      }`}></div>
-                    <div className={`rounded-full bg-green-500 ${previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
-                      }`}></div>
+                    <div className={`rounded-full bg-red-500 ${
+                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                    }`}></div>
+                    <div className={`rounded-full bg-yellow-500 ${
+                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                    }`}></div>
+                    <div className={`rounded-full bg-green-500 ${
+                      previewDevice === 'mobile' ? 'w-2 h-2' : 'w-3 h-3'
+                    }`}></div>
                   </div>
-                  <div className={`ml-3 text-white ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                    }`}>{selectedWebsite?.domain || 'yourwebsite.com'}</div>
+                  <div className={`ml-3 text-white ${
+                    previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                  }`}>{selectedWebsite?.domain || 'yourwebsite.com'}</div>
                 </div>
 
                 {/* Website Content - Priority: Screenshot > Iframe > Fallback */}
@@ -1177,8 +1187,9 @@ export default function ChatLiteWidget() {
                     // Try iframe if no screenshot (secondary)
                     <>
                       {iframeLoading && (
-                        <div className={`absolute inset-0 flex items-center justify-center bg-white space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
-                          }`}>
+                        <div className={`absolute inset-0 flex items-center justify-center bg-white space-y-4 ${
+                          previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                        }`}>
                           <div className="text-center">
                             <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                             <div className="text-gray-600 text-sm">Loading website...</div>
@@ -1214,8 +1225,9 @@ export default function ChatLiteWidget() {
                         />
                       ) : (
                         // Show fallback if iframe failed and no screenshot
-                        <div className={`space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
-                          }`}>
+                        <div className={`space-y-4 ${
+                          previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                        }`}>
                           <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <div className="flex items-start space-x-2">
                               <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -1232,19 +1244,25 @@ export default function ChatLiteWidget() {
                     </>
                   ) : (
                     // Default fallback - no website selected
-                    <div className={`space-y-4 ${previewDevice === 'mobile' ? 'p-4' : 'p-6'
-                      }`}>
-                      <div className={`font-bold text-gray-900 ${previewDevice === 'mobile' ? 'text-lg' : 'text-2xl'
-                        }`}>Your Website</div>
-                      <div className={`text-gray-600 ${previewDevice === 'mobile' ? 'text-sm' : 'text-base'
-                        }`}>This is how your chat widget will appear to visitors</div>
+                    <div className={`space-y-4 ${
+                      previewDevice === 'mobile' ? 'p-4' : 'p-6'
+                    }`}>
+                      <div className={`font-bold text-gray-900 ${
+                        previewDevice === 'mobile' ? 'text-lg' : 'text-2xl'
+                      }`}>Your Website</div>
+                      <div className={`text-gray-600 ${
+                        previewDevice === 'mobile' ? 'text-sm' : 'text-base'
+                      }`}>This is how your chat widget will appear to visitors</div>
                       <div className="space-y-2">
-                        <div className={`bg-gray-200 rounded w-3/4 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                          }`}></div>
-                        <div className={`bg-gray-200 rounded w-1/2 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                          }`}></div>
-                        <div className={`bg-gray-200 rounded w-2/3 ${previewDevice === 'mobile' ? 'h-3' : 'h-4'
-                          }`}></div>
+                        <div className={`bg-gray-200 rounded w-3/4 ${
+                          previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                        }`}></div>
+                        <div className={`bg-gray-200 rounded w-1/2 ${
+                          previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                        }`}></div>
+                        <div className={`bg-gray-200 rounded w-2/3 ${
+                          previewDevice === 'mobile' ? 'h-3' : 'h-4'
+                        }`}></div>
                       </div>
                     </div>
                   )}
@@ -1303,8 +1321,9 @@ export default function ChatLiteWidget() {
                     >
                       {/* Chat Header */}
                       <div
-                        className={`flex items-center justify-between text-white ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                          }`}
+                        className={`flex items-center justify-between text-white ${
+                          previewDevice === 'mobile' ? 'p-2' : 'p-3'
+                        }`}
                         style={{
                           backgroundColor: config.widget_color,
                           borderTopLeftRadius: config.border_radius + 'px',
@@ -1312,78 +1331,92 @@ export default function ChatLiteWidget() {
                         }}
                       >
                         <div className="flex items-center space-x-2">
-                          <div className={`bg-white/20 rounded-full flex items-center justify-center ${previewDevice === 'mobile' ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
-                            }`}>
+                          <div className={`bg-white/20 rounded-full flex items-center justify-center ${
+                            previewDevice === 'mobile' ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
+                          }`}>
                             💬
                           </div>
                           <div>
-                            <div className={`font-semibold ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                              }`}>Support Chat</div>
-                            <div className={`opacity-80 ${previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
-                              }`}>Online now</div>
+                            <div className={`font-semibold ${
+                              previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                            }`}>Support Chat</div>
+                            <div className={`opacity-80 ${
+                              previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                            }`}>Online now</div>
                           </div>
                         </div>
                         <button
                           onClick={() => setPreviewChatOpen(false)}
-                          className={`text-white/60 hover:text-white transition-colors ${previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                            }`}
+                          className={`text-white/60 hover:text-white transition-colors ${
+                            previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
+                          }`}
                         >
                           ✕
                         </button>
                       </div>
 
-                      {/* Chat Messages */}
-                      <div
-                        className={`flex-1 space-y-2 overflow-y-auto ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                          }`}
-                        style={{
-                          height: previewDevice === 'mobile' ? '200px' : previewDevice === 'tablet' ? '250px' : '280px'
-                        }}
-                      >
-                        <div className={`flex items-start ${previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                          }`}>
-                          <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
-                            }`}>👤</div>
-                          <div className={`bg-gray-100 rounded-lg max-w-xs ${previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
-                            }`}>
-                            <div className={`text-gray-800 ${previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
-                              }`}>{config.welcome_message || "Hello! How can I help you today?"}</div>
-                          </div>
-                        </div>
-                        <div className={`flex items-start justify-end ${previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                          }`}>
-                          <div
-                            className={`text-white rounded-lg max-w-xs ${previewDevice === 'mobile' ? 'px-2 py-1 text-xs' : 'px-2 py-1 text-xs'
-                              }`}
-                            style={{ backgroundColor: config.widget_color }}
-                          >
-                            Hi, I need some help with...
-                          </div>
+                    {/* Chat Messages */}
+                    <div
+                      className={`flex-1 space-y-2 overflow-y-auto ${
+                        previewDevice === 'mobile' ? 'p-2' : 'p-3'
+                      }`}
+                      style={{
+                        height: previewDevice === 'mobile' ? '200px' : previewDevice === 'tablet' ? '250px' : '280px'
+                      }}
+                    >
+                      <div className={`flex items-start ${
+                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
+                      }`}>
+                        <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
+                          previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
+                        }`}>👤</div>
+                        <div className={`bg-gray-100 rounded-lg max-w-xs ${
+                          previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
+                        }`}>
+                          <div className={`text-gray-800 ${
+                            previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                          }`}>{config.welcome_message || "Hello! How can I help you today?"}</div>
                         </div>
                       </div>
-
-                      {/* Chat Input */}
-                      <div className={`border-t border-gray-200 ${previewDevice === 'mobile' ? 'p-2' : 'p-3'
-                        }`}>
-                        <div className="flex items-center space-x-1">
-                          <input
-                            type="text"
-                            placeholder={config.placeholder_text || "Type your message..."}
-                            className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-500 placeholder-gray-400 ${previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
-                              }`}
-                            readOnly
-                            value=""
-                          />
-                          <button
-                            className={`text-white rounded flex-shrink-0 whitespace-nowrap ${previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
-                              }`}
-                            style={{ backgroundColor: config.widget_color }}
-                          >
-                            Send
-                          </button>
+                      <div className={`flex items-start justify-end ${
+                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
+                      }`}>
+                        <div
+                          className={`text-white rounded-lg max-w-xs ${
+                            previewDevice === 'mobile' ? 'px-2 py-1 text-xs' : 'px-2 py-1 text-xs'
+                          }`}
+                          style={{ backgroundColor: config.widget_color }}
+                        >
+                          Hi, I need some help with...
                         </div>
                       </div>
                     </div>
+
+                    {/* Chat Input */}
+                    <div className={`border-t border-gray-200 ${
+                      previewDevice === 'mobile' ? 'p-2' : 'p-3'
+                    }`}>
+                      <div className="flex items-center space-x-1">
+                        <input
+                          type="text"
+                          placeholder={config.placeholder_text || "Type your message..."}
+                          className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-500 placeholder-gray-400 ${
+                            previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
+                          }`}
+                          readOnly
+                          value=""
+                        />
+                        <button
+                          className={`text-white rounded flex-shrink-0 whitespace-nowrap ${
+                            previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
+                          }`}
+                          style={{ backgroundColor: config.widget_color }}
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                   )}
 
                   {/* Chat Button */}
@@ -1936,10 +1969,11 @@ export default function ChatLiteWidget() {
                         <button
                           key={device.id}
                           onClick={() => setPreviewDevice(device.id)}
-                          className={`p-2 rounded-md transition-colors ${previewDevice === device.id
+                          className={`p-2 rounded-md transition-colors ${
+                            previewDevice === device.id
                               ? 'bg-blue-600 text-white'
                               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
-                            }`}
+                          }`}
                           title={device.label}
                         >
                           <Icon className="w-4 h-4" />
@@ -1961,9 +1995,10 @@ export default function ChatLiteWidget() {
             {/* Modal Content */}
             <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
               <div className={`
-                ${previewDevice === 'desktop' ? 'w-full h-full' :
+                ${
+                  previewDevice === 'desktop' ? 'w-full h-full' :
                   previewDevice === 'tablet' ? 'w-[768px] h-[1024px]' :
-                    'w-[375px] h-[667px]'
+                  'w-[375px] h-[667px]'
                 }
                 bg-white rounded-lg relative overflow-hidden shadow-2xl
               `}>

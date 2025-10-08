@@ -15,9 +15,28 @@ export interface CrawlHistoryEntry {
   crawl_id: string;
   started_at: string;
   completed_at?: string;
-  status: 'success' | 'failed' | 'cancelled';
+  status: 'pending' | 'running' | 'completed' | 'success' | 'failed' | 'cancelled';
   pages_crawled: number;
   trigger_type: 'manual' | 'scheduled';
+  error_message?: string;
+}
+
+export interface CrawlJobProgress {
+  job_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  pages_queued: number;
+  pages_processing: number;
+  pages_completed: number;
+  pages_failed: number;
+  total_pages: number;
+  total_discovered: number;
+  pages_processed: number;
+  max_pages: number;
+  progress_percentage: number;
+  estimated_time_remaining?: number;
+  current_page_url?: string;
+  started_at?: string;
+  completed_at?: string;
   error_message?: string;
 }
 
@@ -38,6 +57,9 @@ interface UseCrawlReturn {
 
   // Crawl history
   getCrawlHistory: (websiteId: string, limit?: number, offset?: number) => Promise<{ success: boolean; data?: CrawlHistory; error?: string }>;
+
+  // Crawl job progress
+  getCrawlJobProgress: (jobId: string, silent?: boolean) => Promise<{ success: boolean; data?: CrawlJobProgress; error?: string }>;
 
   // State
   isLoading: boolean;
@@ -157,12 +179,48 @@ export const useCrawl = (): UseCrawlReturn => {
     );
   }, []);
 
+  const getCrawlJobProgress = useCallback(async (jobId: string, silent: boolean = false) => {
+    // Validate UUID format before making request
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jobId)) {
+      console.error(`Invalid job_id format: ${jobId}`);
+      return { success: false, error: `Invalid job ID format: ${jobId}` };
+    }
+
+    // Silent mode for background polling - don't show error toasts
+    if (silent) {
+      try {
+        const response = await fetch(`${config.api.baseUrl}/api/v1/crawl/crawling-jobs/${jobId}/progress`, {
+          headers: getAuthHeaders(),
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          // Progress API returns data directly, not wrapped in {success, data}
+          return { success: true, data: data };
+        } else {
+          return { success: false, error: data.detail || data.error || 'Request failed' };
+        }
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Network error' };
+      }
+    }
+
+    // Regular mode with error toasts
+    return handleApiCall<CrawlJobProgress>(() =>
+      fetch(`${config.api.baseUrl}/api/v1/crawl/crawling-jobs/${jobId}/progress`, {
+        headers: getAuthHeaders(),
+      })
+    );
+  }, []);
+
   return {
     triggerCrawl,
     getCrawlStatus,
     cancelCrawl,
     getWebsiteStatus,
     getCrawlHistory,
+    getCrawlJobProgress,
     isLoading,
     error,
   };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   X,
@@ -9,10 +9,11 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useCrawl } from '../../hooks/useCrawl';
-import type { CrawlHistoryEntry } from '../../hooks/useCrawl';
+import type { CrawlHistoryEntry, CrawlJobProgress } from '../../hooks/useCrawl';
 
 interface CrawlHistoryModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
   onClose,
   website,
 }) => {
-  const { getCrawlHistory, isLoading } = useCrawl();
+  const { getCrawlHistory, getCrawlJobProgress, isLoading } = useCrawl();
   const navigate = useNavigate();
   const location = useLocation();
   const [history, setHistory] = useState<CrawlHistoryEntry[]>([]);
@@ -39,8 +40,16 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [jobProgress, setJobProgress] = useState<Map<string, CrawlJobProgress>>(new Map());
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const historyRef = useRef<CrawlHistoryEntry[]>([]);
 
   const pageSize = 10;
+
+  // Keep historyRef in sync with history state
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   // Redirect to parent page on F5 refresh if modal is open
   useEffect(() => {
@@ -72,6 +81,81 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
       loadHistory(true);
     }
   }, [isOpen, statusFilter]);
+
+  // Poll progress for running jobs
+  useEffect(() => {
+    if (!isOpen) {
+      // Clean up interval when modal closes
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Fetch progress for all jobs in history
+    const fetchProgress = async () => {
+      // Find running jobs from current history ref (always gets latest value)
+      const runningJobs = historyRef.current.filter(entry => entry.status === 'running');
+
+      if (runningJobs.length === 0) {
+        setJobProgress(new Map());
+        return;
+      }
+
+      const progressMap = new Map<string, CrawlJobProgress>();
+
+      for (const job of runningJobs) {
+        try {
+          const result = await getCrawlJobProgress(job.crawl_id, true); // silent = true for background polling
+          if (result.success && result.data) {
+            console.log(`Progress for ${job.crawl_id}:`, result.data); // DEBUG
+            progressMap.set(job.crawl_id, result.data);
+
+            // Update history entry if job completed
+            if (result.data.status === 'completed' || result.data.status === 'failed') {
+              setHistory(prev => prev.map(entry =>
+                entry.crawl_id === job.crawl_id
+                  ? {
+                      ...entry,
+                      status: result.data!.status,
+                      pages_crawled: result.data!.pages_completed,
+                      completed_at: result.data!.completed_at
+                    }
+                  : entry
+              ));
+            }
+          } else {
+            console.log(`Progress fetch failed for ${job.crawl_id}:`, result.error); // DEBUG
+          }
+        } catch (error) {
+          // Silently ignore errors during polling
+          console.debug(`Error fetching progress for job ${job.crawl_id}:`, error);
+        }
+      }
+
+      console.log(`Setting jobProgress Map with ${progressMap.size} entries`); // DEBUG
+      setJobProgress(progressMap);
+    };
+
+    // Initial fetch
+    fetchProgress();
+
+    // Set up polling interval (every 2 seconds) - only if not already running
+    if (!progressIntervalRef.current) {
+      progressIntervalRef.current = setInterval(() => {
+        fetchProgress();
+      }, 2000);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    };
+  }, [isOpen]); // Only depend on isOpen - historyRef.current always has latest value
 
   const loadHistory = async (reset: boolean = false) => {
     if (reset) {
@@ -122,12 +206,15 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'completed':
       case 'success':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'failed':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'cancelled':
         return <X className="w-4 h-4 text-gray-500" />;
+      case 'running':
+        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
       default:
         return <Clock className="w-4 h-4 text-yellow-500" />;
     }
@@ -135,12 +222,15 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'completed':
       case 'success':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'failed':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       case 'cancelled':
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      case 'running':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       default:
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
     }
@@ -284,8 +374,50 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
                           {entry.trigger_type}
                         </span>
 
-                        <div className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                          <span className="font-medium">{entry.pages_crawled}</span> pages
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          {(() => {
+                            const hasProgress = jobProgress.has(entry.crawl_id);
+                            if (entry.status === 'running' && hasProgress) {
+                              const p = jobProgress.get(entry.crawl_id)!;
+                              const formatTime = (seconds: number) => {
+                                const mins = Math.floor(seconds / 60);
+                                const secs = seconds % 60;
+                                return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                              };
+                              return (
+                                <div className="space-y-1">
+                                  <div>
+                                    <span className="font-medium">{p.pages_processed}</span>
+                                    <span className="text-gray-500 dark:text-gray-400">/{p.total_pages}</span>
+                                    <span className="ml-1">processed</span>
+                                    <span className="ml-2 text-blue-600 dark:text-blue-400 font-medium">
+                                      ({p.progress_percentage.toFixed(1)}%)
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span>Queued: {p.pages_queued}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>Found: {p.total_discovered}</span>
+                                    <span className="mx-2">•</span>
+                                    <span>Max: {p.max_pages}</span>
+                                    {p.estimated_time_remaining && (
+                                      <>
+                                        <span className="mx-2">•</span>
+                                        <span>ETA: {formatTime(p.estimated_time_remaining)}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <>
+                                  <span className="font-medium">{entry.pages_crawled}</span>
+                                  <span className="ml-1">pages</span>
+                                </>
+                              );
+                            }
+                          })()}
                         </div>
 
                         <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
@@ -311,6 +443,40 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
                         )}
                       </button>
                     </div>
+
+                    {/* Progress bar for running jobs */}
+                    {entry.status === 'running' && jobProgress.has(entry.crawl_id) && (
+                      <div className="mt-3">
+                        {(() => {
+                          const progress = jobProgress.get(entry.crawl_id)!;
+                          return (
+                            <>
+                              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                <span>
+                                  {progress.pages_completed} / {progress.total_pages} pages ({progress.progress_percentage.toFixed(1)}%)
+                                </span>
+                                {progress.current_page_url && (
+                                  <span className="truncate ml-2 max-w-xs">
+                                    Currently: {progress.current_page_url}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${progress.progress_percentage}%` }}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <span>Queued: {progress.pages_queued}</span>
+                                <span>Processing: {progress.pages_processing}</span>
+                                <span>Failed: {progress.pages_failed}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
 
                     {/* Expanded details */}
                     {expandedEntries.has(entry.crawl_id) && (
