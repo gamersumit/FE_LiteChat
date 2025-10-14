@@ -110,6 +110,14 @@ const LoginForm: React.FC = () => {
               create a new account
             </Link>
           </p>
+          <p className="mt-3 text-center">
+            <Link
+              to="/"
+              className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+            >
+              ← Try our demo first
+            </Link>
+          </p>
         </div>
 
         {successMessage && (

@@ -12,7 +12,9 @@ import {
   Clock,
   Trash2,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Rocket
 } from 'lucide-react';
 import ResponsiveLayout from '../components/common/ResponsiveLayout';
 import { useResponsive } from '../hooks/useResponsive';
@@ -31,7 +33,8 @@ import {
   fetchWebsitesWithMetrics
 } from '../store/dashboardSlice';
 import { showSuccessToast, showErrorToast } from '../store/notificationSlice';
-import type { Website as ApiWebsite } from '../services/centralizedApi';
+import type { Website as ApiWebsite, FirstPageStatus } from '../services/centralizedApi';
+import { apiService } from '../services/centralizedApi';
 import { StatusBadge, StatCard, Card } from '../components/ui';
 
 interface Website extends ApiWebsite {
@@ -64,6 +67,8 @@ const WebsiteDetails: React.FC = () => {
   // Local state
   const [crawlModalOpen, setCrawlModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [firstPageStatus, setFirstPageStatus] = useState<FirstPageStatus | null>(null);
+  const [loadingFirstPageStatus, setLoadingFirstPageStatus] = useState(false);
 
   // Find the specific website
   const website = websites.find(w => w.id === websiteId);
@@ -93,6 +98,36 @@ const WebsiteDetails: React.FC = () => {
       navigate('/dashboard');
     }
   }, [website, websitesLoading, websites.length, navigate]);
+
+  // Fetch first page status
+  useEffect(() => {
+    const fetchFirstPageStatus = async () => {
+      if (!websiteId) return;
+
+      setLoadingFirstPageStatus(true);
+      try {
+        const response = await apiService.getFirstPageStatus(websiteId);
+        if (response.success && response.data) {
+          setFirstPageStatus(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch first page status:', error);
+      } finally {
+        setLoadingFirstPageStatus(false);
+      }
+    };
+
+    fetchFirstPageStatus();
+
+    // Poll every 3 seconds if status is pending or processing
+    const interval = setInterval(() => {
+      if (firstPageStatus?.status === 'pending' || firstPageStatus?.status === 'processing' || firstPageStatus?.status === 'retrying') {
+        fetchFirstPageStatus();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [websiteId, firstPageStatus?.status]);
 
   const handleManualCrawl = () => {
     setCrawlModalOpen(true);
@@ -129,6 +164,24 @@ const WebsiteDetails: React.FC = () => {
     }
   };
 
+  const handleRetryFirstPage = async () => {
+    if (!websiteId) return;
+
+    try {
+      const response = await apiService.retryFirstPage(websiteId);
+      if (response.success) {
+        dispatch(showSuccessToast('First page crawl restarted'));
+        // Reset status to trigger polling
+        setFirstPageStatus({ ...firstPageStatus!, status: 'pending', ready_for_chat: false });
+      } else {
+        dispatch(showErrorToast('Failed to retry', response.message || 'Please try again'));
+      }
+    } catch (error) {
+      console.error('Failed to retry first page:', error);
+      dispatch(showErrorToast('Failed to retry first page', 'Please try again later'));
+    }
+  };
+
   const mapWebsiteStatusToBadgeStatus = (status: Website['status']) => {
     switch (status) {
       case 'active':
@@ -141,6 +194,26 @@ const WebsiteDetails: React.FC = () => {
         return 'inactive' as const;
       default:
         return 'inactive' as const;
+    }
+  };
+
+  const getFirstPageStatusDisplay = () => {
+    if (loadingFirstPageStatus) return { value: 'Loading...', color: 'text-gray-600' };
+    if (!firstPageStatus) return { value: 'Unknown', color: 'text-gray-600' };
+
+    switch (firstPageStatus.status) {
+      case 'ready':
+        return { value: `Ready`, color: 'text-green-600' };
+      case 'processing':
+        return { value: 'Getting Ready...', color: 'text-blue-600' };
+      case 'pending':
+        return { value: 'Preparing...', color: 'text-yellow-600' };
+      case 'retrying':
+        return { value: `Retry ${firstPageStatus.retry_info?.current_attempt}/${firstPageStatus.retry_info?.max_attempts}`, color: 'text-orange-600' };
+      case 'failed':
+        return { value: 'Failed', color: 'text-red-600' };
+      default:
+        return { value: 'Unknown', color: 'text-gray-600' };
     }
   };
 
@@ -238,10 +311,10 @@ const WebsiteDetails: React.FC = () => {
             iconColor="text-blue-600"
           />
           <StatCard
-            title="Website Status"
-            value={website.status === 'active' ? 'Active' : 'Inactive'}
-            icon={CheckCircle}
-            iconColor={website.status === 'active' ? "text-green-600" : "text-red-600"}
+            title="Live Preview"
+            value={getFirstPageStatusDisplay().value}
+            icon={loadingFirstPageStatus || firstPageStatus?.status === 'processing' ? Loader2 : Rocket}
+            iconColor={getFirstPageStatusDisplay().color}
           />
           <StatCard
             title="Crawl Status"
@@ -264,7 +337,11 @@ const WebsiteDetails: React.FC = () => {
                   <div>
                     <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">Last Crawled</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {(website as any).lastCrawled ? new Date((website as any).lastCrawled).toLocaleString() : 'Never'}
+                      {(website as any).lastCrawled
+                        ? new Date((website as any).lastCrawled).toLocaleString()
+                        : firstPageStatus?.status === 'ready' && firstPageStatus.crawled_at
+                          ? new Date(firstPageStatus.crawled_at).toLocaleString()
+                          : 'Never'}
                     </p>
                   </div>
                   <div className="flex space-x-2">
@@ -324,6 +401,17 @@ const WebsiteDetails: React.FC = () => {
                 <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Quick Actions</h2>
               </div>
               <div className="p-6 space-y-3">
+                {/* Retry Button if Failed */}
+                {firstPageStatus?.status === 'failed' && (
+                  <button
+                    onClick={handleRetryFirstPage}
+                    className="w-full flex items-center space-x-3 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    <span className="font-medium">Retry First Page Crawl</span>
+                  </button>
+                )}
+
                 <Link
                   to={`/script-generator?websiteId=${website.id}`}
                   className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"

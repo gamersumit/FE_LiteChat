@@ -13,6 +13,8 @@ import ApiErrorHandler from './components/common/ApiErrorHandler';
 import AuthInitializer from './components/auth/AuthInitializer';
 
 // Lazy load heavy pages for better performance
+const Landing = React.lazy(() => import('./pages/Landing'));
+const DemoPage = React.lazy(() => import('./pages/DemoPage'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const AnalyticsDashboard = React.lazy(() => import('./pages/AnalyticsDashboard'));
 const SessionHistory = React.lazy(() => import('./pages/SessionHistory'));
@@ -35,9 +37,6 @@ function AppRoutes() {
           </div>
         }>
           <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
           {/* Auth routes (redirect to dashboard if already authenticated) */}
           <Route path="/login" element={
             <ProtectedRoute requireAuth={false}>
@@ -108,7 +107,7 @@ function AppRoutes() {
           } />
 
           {/* Fallback route */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
         {/* Global error and notification handlers */}
@@ -125,11 +124,22 @@ function App() {
       <AuthInitializer>
         <ThemeProvider>
           <Router>
-            <Routes>
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+              </div>
+            }>
+              <Routes>
+                {/* Landing page - no layout */}
+                <Route path="/" element={<Landing />} />
 
-              {/* All other routes with AppLayout */}
-              <Route path="/*" element={<AppRoutes />} />
-            </Routes>
+                {/* Demo page - no layout, no auth required */}
+                <Route path="/demo/:demoId" element={<DemoPage />} />
+
+                {/* All other routes with AppLayout */}
+                <Route path="/*" element={<AppRoutes />} />
+              </Routes>
+            </Suspense>
           </Router>
         </ThemeProvider>
       </AuthInitializer>

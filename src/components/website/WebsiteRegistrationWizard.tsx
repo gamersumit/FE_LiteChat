@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Globe, Settings, CheckCircle, ArrowLeft, ArrowRight, Loader2, X, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Globe, Settings, CheckCircle, ArrowLeft, ArrowRight, Loader2, X, Sparkles, Clock, AlertCircle, RefreshCcw, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../../store';
 import { createWebsite } from '../../store/dashboardSlice';
 import { showSuccessToast, showErrorToast } from '../../store/notificationSlice';
 import { config } from '../../config/env';
+import { apiService } from '../../services/centralizedApi';
+import type { FirstPageStatus } from '../../services/centralizedApi';
+import LivePreviewModal from './LivePreviewModal';
 
 interface WebsiteData {
   name: string;
@@ -97,6 +100,11 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
     features: []
   });
 
+  // State for Step 4 - First Page Status
+  const [createdWebsiteId, setCreatedWebsiteId] = useState<string | null>(null);
+  const [firstPageStatus, setFirstPageStatus] = useState<FirstPageStatus | null>(null);
+  const [showLivePreview, setShowLivePreview] = useState(false);
+
   const steps = [
     {
       id: 1,
@@ -115,6 +123,12 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
       title: 'Review & Deploy',
       description: 'Confirm settings and create your website',
       icon: CheckCircle
+    },
+    {
+      id: 4,
+      title: 'First Page Setup',
+      description: 'Testing your chatbot with homepage',
+      icon: MessageSquare
     }
   ];
 
@@ -163,12 +177,9 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
         'Your chatbot is being set up and will be available shortly.'
       ));
 
-      // Call success callback and close modal
-      onSuccess?.();
-      onClose();
-
-      // Redirect to dashboard after successful creation
-      navigate('/dashboard');
+      // Set website ID and move to Step 4 to show first page status
+      setCreatedWebsiteId(result.website.id);
+      setCurrentStep(4);
 
     } catch (error) {
       console.error('Error creating website:', error);
@@ -194,6 +205,35 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
       setIsLoading(false);
     }
   };
+
+  // Poll first page status when on Step 4
+  useEffect(() => {
+    if (currentStep === 4 && createdWebsiteId) {
+      const pollStatus = async () => {
+        try {
+          const response = await apiService.getFirstPageStatus(createdWebsiteId);
+          if (response.success && response.data) {
+            setFirstPageStatus(response.data);
+
+            // Stop polling if status is terminal (ready or failed)
+            if (response.data.status === 'ready' || response.data.status === 'failed') {
+              clearInterval(pollingInterval);
+            }
+          }
+        } catch (error) {
+          console.error('Error polling first page status:', error);
+        }
+      };
+
+      // Initial poll
+      pollStatus();
+
+      // Poll every 2 seconds
+      const pollingInterval = setInterval(pollStatus, 2000);
+
+      return () => clearInterval(pollingInterval);
+    }
+  }, [currentStep, createdWebsiteId]);
 
   const updateWebsiteData = (field: keyof WebsiteData, value: any) => {
     const updates: Partial<WebsiteData> = { [field]: value };
@@ -227,6 +267,19 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
         ? prev.features.filter(f => f !== feature)
         : [...prev.features, feature]
     }));
+  };
+
+  // Handler for closing modal - properly navigates to dashboard when on Step 4
+  const handleClose = () => {
+    // If on Step 4 (after website creation), navigate to dashboard
+    if (currentStep === 4) {
+      onSuccess?.();
+      onClose();
+      navigate('/dashboard');
+    } else {
+      // Otherwise just close the modal
+      onClose();
+    }
   };
 
   const renderStep1 = () => (
@@ -469,6 +522,211 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
     </div>
   );
 
+  const renderStep4 = () => {
+    // Handler for retrying first page crawl
+    const handleRetry = async () => {
+      if (!createdWebsiteId) return;
+
+      try {
+        const response = await apiService.retryFirstPage(createdWebsiteId);
+        if (response.success) {
+          // Reset status to show polling again
+          setFirstPageStatus({
+            status: 'pending',
+            ready_for_chat: false
+          });
+        }
+      } catch (error) {
+        console.error('Error retrying first page:', error);
+      }
+    };
+
+    // Handler for testing chat
+    const handleTestChat = () => {
+      setShowLivePreview(true);
+    };
+
+    // Handler for finishing setup
+    const handleFinish = () => {
+      onSuccess?.();
+      onClose();
+      navigate('/dashboard');
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Status Display */}
+        {firstPageStatus?.status === 'pending' && (
+          <div className="bg-blue-600 border border-blue-500 rounded-lg p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <Clock className="h-5 w-5 text-white animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Queued for Processing</h3>
+                <p className="text-blue-100">
+                  Your homepage is in the queue and will be processed shortly...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {firstPageStatus?.status === 'processing' && (
+          <div className="bg-indigo-600 border border-indigo-500 rounded-lg p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <Loader2 className="h-5 w-5 text-white animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Processing Homepage</h3>
+                <p className="text-indigo-100">
+                  We're capturing a screenshot and extracting content from your homepage...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {firstPageStatus?.status === 'retrying' && (
+          <div className="bg-yellow-600 border border-yellow-500 rounded-lg p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <RefreshCcw className="h-5 w-5 text-white animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Retrying...</h3>
+                <p className="text-yellow-100">
+                  Encountered an issue, retrying automatically...
+                  {firstPageStatus.retry_info?.current_attempt && ` (Attempt ${firstPageStatus.retry_info.current_attempt}/${firstPageStatus.retry_info.max_attempts})`}
+                </p>
+                {firstPageStatus.retry_info?.error_message && (
+                  <p className="text-xs text-yellow-200 mt-2">
+                    Error: {firstPageStatus.retry_info.error_message}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {firstPageStatus?.status === 'ready' && (
+          <div className="bg-green-600 border border-green-500 rounded-lg p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Homepage Ready!</h3>
+                <p className="text-green-100">
+                  Your chatbot can now answer questions about your homepage
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {firstPageStatus?.status === 'failed' && (
+          <div className="bg-red-600 border border-red-500 rounded-lg p-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">Processing Failed</h3>
+                <p className="text-red-100">
+                  We couldn't process your homepage after {firstPageStatus.failure_info?.total_attempts || 3} attempts
+                </p>
+                {firstPageStatus.failure_info?.last_error && (
+                  <p className="text-sm text-red-200 mt-2">
+                    Error: {firstPageStatus.failure_info.last_error}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Box */}
+        <div className="bg-gray-600 border border-gray-500 rounded-lg p-6 space-y-4">
+          <h4 className="font-semibold text-gray-200 text-lg flex items-center">
+            <Sparkles className="w-5 h-5 mr-2 text-yellow-400" />
+            What's Happening?
+          </h4>
+          <div className="space-y-3 text-sm text-gray-300">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs font-bold text-white">1</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-200">Capturing Screenshot</p>
+                <p className="text-xs text-gray-400">Taking a visual snapshot of your homepage</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs font-bold text-white">2</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-200">Extracting Content</p>
+                <p className="text-xs text-gray-400">Reading and cleaning text from your page</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-xs font-bold text-white">3</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-200">Creating AI Knowledge</p>
+                <p className="text-xs text-gray-400">Generating embeddings for intelligent responses</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-4">
+          {firstPageStatus?.status === 'ready' && (
+            <>
+              <button
+                onClick={handleTestChat}
+                className="flex-1 flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Test Chat
+              </button>
+              <button
+                onClick={handleFinish}
+                className="flex-1 flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Finish Setup
+              </button>
+            </>
+          )}
+
+          {firstPageStatus?.status === 'failed' && (
+            <>
+              <button
+                onClick={handleRetry}
+                className="flex-1 flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+              >
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Try Again
+              </button>
+              <button
+                onClick={handleFinish}
+                className="flex-1 flex items-center justify-center px-6 py-3 rounded-xl text-sm font-medium text-gray-300 bg-gray-600 hover:bg-gray-500 border border-gray-500 transition-all duration-200"
+              >
+                Skip for Now
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const currentStepData = steps.find(step => step.id === currentStep);
 
   if (!isOpen) return null;
@@ -488,7 +746,7 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-300 transition-colors"
             disabled={isLoading}
           >
@@ -549,52 +807,71 @@ const WebsiteRegistrationWizard: React.FC<WebsiteRegistrationModalProps> = ({
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
 
-            {/* Navigation */}
-            <div className="mt-8 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={handlePrevious}
-                disabled={currentStep === 1}
-                className="flex items-center px-6 py-3 border-2 border-gray-600 rounded-xl text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Previous
-              </button>
-
-              {currentStep < steps.length ? (
+            {/* Navigation - Hidden on Step 4 */}
+            {currentStep < 4 && (
+              <div className="mt-8 flex justify-between items-center">
                 <button
                   type="button"
-                  onClick={handleNext}
-                  className="flex items-center px-8 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1}
+                  className="flex items-center px-6 py-3 border-2 border-gray-600 rounded-xl text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
-                  Next Step
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Previous
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isLoading}
-                  className="flex items-center px-8 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg transition-all duration-200"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating Website...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Create Website
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+
+                {currentStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex items-center px-8 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                  >
+                    Next Step
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isLoading}
+                    className="flex items-center px-8 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg transition-all duration-200"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating Website...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Create Website
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Live Preview Modal */}
+      {showLivePreview && createdWebsiteId && (
+        <LivePreviewModal
+          isOpen={showLivePreview}
+          onClose={() => setShowLivePreview(false)}
+          websiteId={createdWebsiteId}
+          websiteName={websiteData.name}
+          websiteUrl={websiteData.url}
+          onStartFullCrawl={() => {
+            // TODO: Trigger full crawl via API
+            console.log('Start full crawl for website:', createdWebsiteId);
+          }}
+          isVerified={false} // TODO: Get actual verification status
+        />
+      )}
     </div>
   );
 };

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useCrawl } from '../../hooks/useCrawl';
 import type { CrawlHistoryEntry, CrawlJobProgress } from '../../hooks/useCrawl';
+import { apiService } from '../../services/centralizedApi';
+import type { FirstPageStatus } from '../../services/centralizedApi';
 
 interface CrawlHistoryModalProps {
   isOpen: boolean;
@@ -43,6 +45,10 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
   const [jobProgress, setJobProgress] = useState<Map<string, CrawlJobProgress>>(new Map());
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const historyRef = useRef<CrawlHistoryEntry[]>([]);
+
+  // First page crawl status
+  const [firstPageStatus, setFirstPageStatus] = useState<FirstPageStatus | null>(null);
+  const [loadingFirstPageStatus, setLoadingFirstPageStatus] = useState(false);
 
   const pageSize = 10;
 
@@ -79,8 +85,37 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadHistory(true);
+      fetchFirstPageStatus();
     }
   }, [isOpen, statusFilter]);
+
+  // Fetch first page status
+  const fetchFirstPageStatus = async () => {
+    setLoadingFirstPageStatus(true);
+    try {
+      const response = await apiService.getFirstPageStatus(website.id);
+      if (response.success && response.data) {
+        setFirstPageStatus(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch first page status:', error);
+    } finally {
+      setLoadingFirstPageStatus(false);
+    }
+  };
+
+  // Poll first page status if it's in progress
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const interval = setInterval(() => {
+      if (firstPageStatus?.status === 'pending' || firstPageStatus?.status === 'processing' || firstPageStatus?.status === 'retrying') {
+        fetchFirstPageStatus();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, firstPageStatus?.status]);
 
   // Poll progress for running jobs
   useEffect(() => {
@@ -237,9 +272,14 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
   };
 
   const getTriggerTypeColor = (triggerType: string) => {
-    return triggerType === 'manual'
-      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-      : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+    switch (triggerType) {
+      case 'manual':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'first_crawl':
+        return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
+      default:
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+    }
   };
 
   const formatDateTime = (dateString: string) => {
@@ -272,9 +312,27 @@ const CrawlHistoryModal: React.FC<CrawlHistoryModalProps> = ({
     }
   };
 
-  const filteredHistory = history.filter(entry => {
+  // Convert first page status to history entry format
+  const firstPageHistoryEntry = firstPageStatus ? {
+    crawl_id: 'first_page_crawl',
+    status: firstPageStatus.status === 'ready' ? 'success' :
+            firstPageStatus.status === 'processing' || firstPageStatus.status === 'pending' ? 'running' :
+            firstPageStatus.status,
+    pages_crawled: firstPageStatus.chunks_count || 0,
+    trigger_type: 'first_crawl',
+    started_at: firstPageStatus.crawled_at || new Date().toISOString(),
+    // Don't set completed_at to avoid showing 0 duration (we don't track start time for first page crawl)
+    completed_at: undefined,
+    error_message: firstPageStatus.status === 'failed' ? firstPageStatus.failure_info?.last_error :
+                   firstPageStatus.status === 'retrying' ? firstPageStatus.retry_info?.error_message : undefined
+  } : null;
+
+  // Combine first page entry with regular history
+  const allHistory = firstPageHistoryEntry ? [firstPageHistoryEntry, ...history] : history;
+
+  const filteredHistory = allHistory.filter(entry => {
     if (statusFilter === 'all') return true;
-    return entry.status === statusFilter;
+    return entry.status === statusFilter || entry.status === 'success';
   });
 
   if (!isOpen) return null;

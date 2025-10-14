@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../../store';
 import { selectWebsites, fetchWebsitesWithMetrics, selectWebsitesLoading } from '../../store/dashboardSlice';
 import { useTokenRefresh } from '../../hooks/useTokenRefresh';
 import type { Website as ReduxWebsite } from '../../services/centralizedApi';
+import { apiService } from '../../services/centralizedApi';
 
 // TypeScript declarations for window.ChatLite
 declare global {
@@ -49,7 +50,10 @@ import {
   FileText,
   Shield,
   RefreshCw,
-  X
+  X,
+  Loader2,
+  User,
+  Image
 } from 'lucide-react';
 
 interface Website extends ReduxWebsite {
@@ -76,6 +80,11 @@ interface WidgetConfiguration {
   custom_css?: string;
   font_family?: string;
   border_radius: number;
+  chatbot_name?: string;
+  ai_logo_url?: string;
+  button_logo_url?: string;
+  ai_avatar_url?: string;
+  user_avatar_url?: string;
 }
 
 interface ScriptConfig extends WidgetConfiguration {
@@ -116,6 +125,11 @@ const ScriptGenerator: React.FC = () => {
     custom_css: undefined,
     font_family: undefined,
     border_radius: 13,
+    chatbot_name: undefined,
+    ai_logo_url: undefined,
+    button_logo_url: undefined,
+    ai_avatar_url: undefined,
+    user_avatar_url: undefined,
     asyncLoading: true
   });
 
@@ -147,6 +161,24 @@ const ScriptGenerator: React.FC = () => {
   const generatedSectionRef = useRef<HTMLDivElement>(null);
   const integrationGuideRef = useRef<HTMLDivElement>(null);
   const troubleshootRef = useRef<HTMLDivElement>(null);
+
+  // Preview chat functionality
+  const [previewMessages, setPreviewMessages] = useState<Array<{ id: string; content: string; type: 'user' | 'assistant'; timestamp: Date }>>([
+    {
+      id: '1',
+      content: config.welcome_message || 'Hi! How can I help you today?',
+      type: 'assistant',
+      timestamp: new Date()
+    }
+  ]);
+  const [previewInputValue, setPreviewInputValue] = useState('');
+  const [isPreviewTyping, setIsPreviewTyping] = useState(false);
+  const previewMessagesContainerRef = useRef<HTMLDivElement>(null);
+  const fullscreenMessagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // First page crawl status
+  const [firstPageStatus, setFirstPageStatus] = useState<any>(null);
+  const [loadingFirstPageStatus, setLoadingFirstPageStatus] = useState(false);
 
   // F5 refresh: Check auth and load websites
   useEffect(() => {
@@ -243,6 +275,36 @@ const ScriptGenerator: React.FC = () => {
     }
   };
 
+  // Fetch first page status when website changes
+  useEffect(() => {
+    const fetchFirstPageStatus = async () => {
+      if (!selectedWebsite?.id) return;
+
+      setLoadingFirstPageStatus(true);
+      try {
+        const response = await apiService.getFirstPageStatus(selectedWebsite.id);
+        if (response.success && response.data) {
+          setFirstPageStatus(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch first page status:', error);
+      } finally {
+        setLoadingFirstPageStatus(false);
+      }
+    };
+
+    fetchFirstPageStatus();
+
+    // Poll every 3 seconds if status is pending, processing, or retrying
+    const interval = setInterval(() => {
+      if (firstPageStatus?.status === 'pending' || firstPageStatus?.status === 'processing' || firstPageStatus?.status === 'retrying') {
+        fetchFirstPageStatus();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [selectedWebsite?.id, firstPageStatus?.status]);
+
   const generateScript = async (): Promise<void> => {
     if (!selectedWebsite) return;
 
@@ -285,6 +347,78 @@ const ScriptGenerator: React.FC = () => {
       setIsGeneratingScript(false);
     }
   };
+
+  // Handle sending messages in preview chat
+  const handlePreviewSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const messageText = previewInputValue.trim();
+    if (!messageText || isPreviewTyping || !selectedWebsite) return;
+
+    // Add user message
+    const userMessage = {
+      id: Date.now().toString(),
+      content: messageText,
+      type: 'user' as const,
+      timestamp: new Date()
+    };
+    setPreviewMessages(prev => [...prev, userMessage]);
+    setPreviewInputValue('');
+
+    // Show typing indicator
+    setIsPreviewTyping(true);
+
+    try {
+      // Call actual API to chat with first page content
+      const response = await apiService.chatWithFirstPage(
+        selectedWebsite.id,
+        messageText,
+        `preview-${selectedWebsite.id}-${Date.now()}`
+      );
+
+      if (response.success && response.data) {
+        const botResponse = {
+          id: (Date.now() + 1).toString(),
+          content: response.data.response,
+          type: 'assistant' as const,
+          timestamp: new Date()
+        };
+        setPreviewMessages(prev => [...prev, botResponse]);
+      } else {
+        throw new Error(response.message || 'Failed to get response');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        content: "Sorry, I couldn't process your message. Please try again.",
+        type: 'assistant' as const,
+        timestamp: new Date()
+      };
+      setPreviewMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsPreviewTyping(false);
+    }
+  };
+
+  const handlePreviewKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handlePreviewSendMessage();
+    }
+  };
+
+  // Auto-scroll to bottom when new messages are added (only scroll the chat container, not the whole page)
+  useEffect(() => {
+    // Scroll the main preview messages container
+    if (previewMessagesContainerRef.current) {
+      previewMessagesContainerRef.current.scrollTop = previewMessagesContainerRef.current.scrollHeight;
+    }
+    // Scroll the fullscreen preview messages container
+    if (fullscreenMessagesContainerRef.current) {
+      fullscreenMessagesContainerRef.current.scrollTop = fullscreenMessagesContainerRef.current.scrollHeight;
+    }
+  }, [previewMessages, isPreviewTyping]);
 
   const escapeJSString = (text: string): string => {
     if (!text) return '';
@@ -332,6 +466,11 @@ const ScriptGenerator: React.FC = () => {
         customLogoUrl: '${escapeJSString(config.custom_logo_url || "")}',
         companyName: '${escapeJSString(config.company_name)}',
         supportEmail: '${escapeJSString(config.support_email || "")}',
+        chatbotName: '${escapeJSString(config.chatbot_name || "")}',
+        aiLogoUrl: '${escapeJSString(config.ai_logo_url || "")}',
+        buttonLogoUrl: '${escapeJSString(config.button_logo_url || "")}',
+        aiAvatarUrl: '${escapeJSString(config.ai_avatar_url || "")}',
+        userAvatarUrl: '${escapeJSString(config.user_avatar_url || "")}',
 
         // Custom CSS
         customCSS: '${escapeJSString(config.custom_css || "")}'
@@ -392,6 +531,11 @@ function add_chatlite_widget() {
             customLogoUrl: '<?php echo esc_js("${escapeJSString(config.custom_logo_url || "")}"); ?>',
             companyName: '<?php echo esc_js("${escapeJSString(config.company_name)}"); ?>',
             supportEmail: '<?php echo esc_js("${escapeJSString(config.support_email || "")}"); ?>',
+            chatbotName: '<?php echo esc_js("${escapeJSString(config.chatbot_name || "")}"); ?>',
+            aiLogoUrl: '<?php echo esc_js("${escapeJSString(config.ai_logo_url || "")}"); ?>',
+            buttonLogoUrl: '<?php echo esc_js("${escapeJSString(config.button_logo_url || "")}"); ?>',
+            aiAvatarUrl: '<?php echo esc_js("${escapeJSString(config.ai_avatar_url || "")}"); ?>',
+            userAvatarUrl: '<?php echo esc_js("${escapeJSString(config.user_avatar_url || "")}"); ?>',
 
             // Custom CSS
             customCSS: '<?php echo esc_js("${escapeJSString(config.custom_css || "")}"); ?>'
@@ -464,6 +608,11 @@ const ChatLiteWidget = () => {
             customLogoUrl: '${escapeJSString(config.custom_logo_url || "")}',
             companyName: '${escapeJSString(config.company_name)}',
             supportEmail: '${escapeJSString(config.support_email || "")}',
+            chatbotName: '${escapeJSString(config.chatbot_name || "")}',
+            aiLogoUrl: '${escapeJSString(config.ai_logo_url || "")}',
+            buttonLogoUrl: '${escapeJSString(config.button_logo_url || "")}',
+            aiAvatarUrl: '${escapeJSString(config.ai_avatar_url || "")}',
+            userAvatarUrl: '${escapeJSString(config.user_avatar_url || "")}',
 
             // Custom CSS
             customCSS: '${escapeJSString(config.custom_css || "")}'
@@ -560,6 +709,11 @@ export default function ChatLiteWidget() {
                 customLogoUrl: '${escapeJSString(config.custom_logo_url || "")}',
                 companyName: '${escapeJSString(config.company_name)}',
                 supportEmail: '${escapeJSString(config.support_email || "")}',
+                chatbotName: '${escapeJSString(config.chatbot_name || "")}',
+                aiLogoUrl: '${escapeJSString(config.ai_logo_url || "")}',
+                buttonLogoUrl: '${escapeJSString(config.button_logo_url || "")}',
+                aiAvatarUrl: '${escapeJSString(config.ai_avatar_url || "")}',
+                userAvatarUrl: '${escapeJSString(config.user_avatar_url || "")}',
 
                 // Custom CSS
                 customCSS: '${escapeJSString(config.custom_css || "")}'
@@ -610,6 +764,11 @@ export default function ChatLiteWidget() {
                             customLogoUrl: '${escapeJSString(config.custom_logo_url || "")}',
                             companyName: '${escapeJSString(config.company_name)}',
                             supportEmail: '${escapeJSString(config.support_email || "")}',
+                            chatbotName: '${escapeJSString(config.chatbot_name || "")}',
+                            aiLogoUrl: '${escapeJSString(config.ai_logo_url || "")}',
+                            buttonLogoUrl: '${escapeJSString(config.button_logo_url || "")}',
+                            aiAvatarUrl: '${escapeJSString(config.ai_avatar_url || "")}',
+                            userAvatarUrl: '${escapeJSString(config.user_avatar_url || "")}',
 
                             // Custom CSS
                             customCSS: '${escapeJSString(config.custom_css || "")}'
@@ -781,10 +940,10 @@ export default function ChatLiteWidget() {
         </div>
 
         {/* Middle Section - Widget Appearance and Live Preview Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 
-          {/* Left Side - Widget Appearance */}
-          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
+          {/* Left Side - Widget Appearance (Scrollable) */}
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 overflow-y-auto max-h-[calc(100vh-12rem)] lg:max-h-[calc(100vh-10rem)]">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-2 bg-orange-500/20 rounded-lg">
                 <Palette className="w-6 h-6 text-orange-400" />
@@ -937,6 +1096,96 @@ export default function ChatLiteWidget() {
                   onChange={(e) => setConfig(prev => ({ ...prev, offline_message: e.target.value }))}
                 />
                 <div className="text-xs text-gray-400 mt-1">Message shown when support is offline</div>
+              </div>
+            </div>
+
+            {/* Branding & Customization Section */}
+            <div className="mt-8 pt-6 border-t border-gray-700">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="p-2 bg-indigo-500/20 rounded-lg">
+                  <User className="w-6 h-6 text-indigo-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Branding & Customization</h3>
+              </div>
+
+              {/* Chatbot Name */}
+              <div className="mb-6">
+                <label className="flex items-center space-x-2 text-indigo-400 font-medium mb-3">
+                  <div className="w-4 h-4 bg-indigo-400 rounded-full"></div>
+                  <span>Chatbot Name</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="Support Chat (default: company_name)"
+                  value={config.chatbot_name || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, chatbot_name: e.target.value || undefined }))}
+                />
+                <div className="text-xs text-gray-400 mt-1">Name displayed in chat header</div>
+              </div>
+
+              {/* AI Logo URL */}
+              <div className="mb-6">
+                <label className="flex items-center space-x-2 text-purple-400 font-medium mb-3">
+                  <Image className="w-4 h-4 text-purple-400" />
+                  <span>AI Logo URL</span>
+                </label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="https://example.com/ai-logo.png"
+                  value={config.ai_logo_url || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, ai_logo_url: e.target.value || undefined }))}
+                />
+                <div className="text-xs text-gray-400 mt-1">Logo displayed in chat header next to chatbot name</div>
+              </div>
+
+              {/* Button Logo URL */}
+              <div className="mb-6">
+                <label className="flex items-center space-x-2 text-pink-400 font-medium mb-3">
+                  <Image className="w-4 h-4 text-pink-400" />
+                  <span>Button Logo URL</span>
+                </label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="https://example.com/button-logo.png"
+                  value={config.button_logo_url || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, button_logo_url: e.target.value || undefined }))}
+                />
+                <div className="text-xs text-gray-400 mt-1">Logo displayed on the chat widget button</div>
+              </div>
+
+              {/* AI Avatar URL */}
+              <div className="mb-6">
+                <label className="flex items-center space-x-2 text-cyan-400 font-medium mb-3">
+                  <User className="w-4 h-4 text-cyan-400" />
+                  <span>AI Avatar URL</span>
+                </label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="https://example.com/ai-avatar.png"
+                  value={config.ai_avatar_url || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, ai_avatar_url: e.target.value || undefined }))}
+                />
+                <div className="text-xs text-gray-400 mt-1">Avatar shown next to AI/bot messages</div>
+              </div>
+
+              {/* User Avatar URL */}
+              <div>
+                <label className="flex items-center space-x-2 text-teal-400 font-medium mb-3">
+                  <User className="w-4 h-4 text-teal-400" />
+                  <span>User Avatar URL</span>
+                </label>
+                <input
+                  type="url"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="https://example.com/user-avatar.png"
+                  value={config.user_avatar_url || ''}
+                  onChange={(e) => setConfig(prev => ({ ...prev, user_avatar_url: e.target.value || undefined }))}
+                />
+                <div className="text-xs text-gray-400 mt-1">Avatar shown next to user messages</div>
               </div>
             </div>
 
@@ -1100,9 +1349,9 @@ export default function ChatLiteWidget() {
             </div>
           </div>
 
-          {/* Right Side - Live Preview */}
-          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700">
-            <div className="flex items-center justify-between mb-6">
+          {/* Right Side - Live Preview (Fixed Height) */}
+          <div className="bg-gray-800 rounded-2xl p-6 border border-gray-700 h-[calc(100vh-12rem)] lg:h-[calc(100vh-10rem)] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-green-500/20 rounded-lg">
                   <Eye className="w-6 h-6 text-green-400" />
@@ -1142,8 +1391,83 @@ export default function ChatLiteWidget() {
               </div>
             </div>
 
+            {/* First Page Crawl Status Banner */}
+            {firstPageStatus && (
+              <div className="mb-4">
+                {firstPageStatus.status === 'pending' && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-yellow-200">Preparing chat preview...</p>
+                        <p className="text-xs text-yellow-200/70 mt-0.5">Setting up your homepage content for instant testing</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {firstPageStatus.status === 'processing' && (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-200">
+                          Processing homepage... ({firstPageStatus.estimated_time || '~10-15 seconds'})
+                        </p>
+                        <p className="text-xs text-blue-200/70 mt-0.5">Extracting and indexing content for chat functionality</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {firstPageStatus.status === 'retrying' && firstPageStatus.retry_info && (
+                  <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <RefreshCw className="w-4 h-4 text-orange-400 animate-spin" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-orange-200">
+                          Retry {firstPageStatus.retry_info.current_attempt}/{firstPageStatus.retry_info.max_attempts} in {firstPageStatus.retry_info.seconds_until_retry}s
+                        </p>
+                        <p className="text-xs text-orange-200/70 mt-0.5">
+                          {firstPageStatus.retry_info.error_message || 'Temporary issue, retrying automatically...'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {firstPageStatus.status === 'ready' && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-green-200">
+                          ✨ Chat preview ready! ({firstPageStatus.chunks_count || 0} sections indexed)
+                        </p>
+                        <p className="text-xs text-green-200/70 mt-0.5">Type a message below to test your chatbot with homepage content</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {firstPageStatus.status === 'failed' && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <XCircle className="w-4 h-4 text-red-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-red-200">Setup failed after {firstPageStatus.failure_info?.total_attempts || 3} attempts</p>
+                        <p className="text-xs text-red-200/70 mt-0.5">
+                          {firstPageStatus.failure_info?.last_error || 'Please try again or contact support'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Preview Container */}
-            <div className="flex justify-center">
+            <div className="flex justify-center flex-1 overflow-auto">
               <div className={`
                 ${
                   previewDevice === 'desktop' ? 'w-full max-w-4xl h-[600px]' :
@@ -1331,15 +1655,29 @@ export default function ChatLiteWidget() {
                         }}
                       >
                         <div className="flex items-center space-x-2">
+                          {config.ai_logo_url ? (
+                            <img
+                              src={config.ai_logo_url}
+                              alt="AI Logo"
+                              className={`rounded-full object-cover ${
+                                previewDevice === 'mobile' ? 'w-5 h-5' : 'w-6 h-6'
+                              }`}
+                              onError={(e) => {
+                                // Fallback to emoji if image fails to load
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
                           <div className={`bg-white/20 rounded-full flex items-center justify-center ${
                             previewDevice === 'mobile' ? 'w-5 h-5 text-xs' : 'w-6 h-6 text-xs'
-                          }`}>
+                          } ${config.ai_logo_url ? 'hidden' : ''}`}>
                             💬
                           </div>
                           <div>
                             <div className={`font-semibold ${
                               previewDevice === 'mobile' ? 'text-xs' : 'text-sm'
-                            }`}>Support Chat</div>
+                            }`}>{config.chatbot_name || config.company_name || 'Support Chat'}</div>
                             <div className={`opacity-80 ${
                               previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
                             }`}>Online now</div>
@@ -1357,6 +1695,7 @@ export default function ChatLiteWidget() {
 
                     {/* Chat Messages */}
                     <div
+                      ref={previewMessagesContainerRef}
                       className={`flex-1 space-y-2 overflow-y-auto ${
                         previewDevice === 'mobile' ? 'p-2' : 'p-3'
                       }`}
@@ -1364,57 +1703,134 @@ export default function ChatLiteWidget() {
                         height: previewDevice === 'mobile' ? '200px' : previewDevice === 'tablet' ? '250px' : '280px'
                       }}
                     >
-                      <div className={`flex items-start ${
-                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                      }`}>
-                        <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
-                          previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
-                        }`}>👤</div>
-                        <div className={`bg-gray-100 rounded-lg max-w-xs ${
-                          previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
-                        }`}>
-                          <div className={`text-gray-800 ${
-                            previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
-                          }`}>{config.welcome_message || "Hello! How can I help you today?"}</div>
-                        </div>
-                      </div>
-                      <div className={`flex items-start justify-end ${
-                        previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
-                      }`}>
+                      {previewMessages.map((msg) => (
                         <div
-                          className={`text-white rounded-lg max-w-xs ${
-                            previewDevice === 'mobile' ? 'px-2 py-1 text-xs' : 'px-2 py-1 text-xs'
+                          key={msg.id}
+                          className={`flex items-start ${
+                            msg.type === 'user' ? 'justify-end' : ''
+                          } ${
+                            previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
                           }`}
-                          style={{ backgroundColor: config.widget_color }}
                         >
-                          Hi, I need some help with...
+                          {msg.type === 'assistant' && (
+                            config.ai_avatar_url ? (
+                              <img
+                                src={config.ai_avatar_url}
+                                alt="AI Avatar"
+                                className={`rounded-full flex-shrink-0 object-cover ${
+                                  previewDevice === 'mobile' ? 'w-4 h-4' : 'w-5 h-5'
+                                }`}
+                                onError={(e) => {
+                                  // Fallback to emoji if image fails to load
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : (
+                              <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
+                                previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
+                              }`}>👤</div>
+                            )
+                          )}
+                          <div
+                            className={`rounded-lg max-w-xs ${
+                              msg.type === 'assistant'
+                                ? 'bg-gray-100'
+                                : 'text-white'
+                            } ${
+                              previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
+                            }`}
+                            style={msg.type === 'user' ? { backgroundColor: config.widget_color } : {}}
+                          >
+                            <div className={`${
+                              msg.type === 'assistant' ? 'text-gray-800' : 'text-white'
+                            } ${
+                              previewDevice === 'mobile' ? 'text-xs' : 'text-xs'
+                            }`}>{msg.content}</div>
+                          </div>
+                          {msg.type === 'user' && (
+                            config.user_avatar_url ? (
+                              <img
+                                src={config.user_avatar_url}
+                                alt="User Avatar"
+                                className={`rounded-full flex-shrink-0 object-cover ${
+                                  previewDevice === 'mobile' ? 'w-4 h-4' : 'w-5 h-5'
+                                }`}
+                                onError={(e) => {
+                                  // Fallback to emoji if image fails to load
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : (
+                              <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
+                                previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
+                              }`}>👤</div>
+                            )
+                          )}
                         </div>
-                      </div>
+                      ))}
+                      {isPreviewTyping && (
+                        <div className={`flex items-start ${
+                          previewDevice === 'mobile' ? 'space-x-1' : 'space-x-2'
+                        }`}>
+                          {config.ai_avatar_url ? (
+                            <img
+                              src={config.ai_avatar_url}
+                              alt="AI Avatar"
+                              className={`rounded-full flex-shrink-0 object-cover ${
+                                previewDevice === 'mobile' ? 'w-4 h-4' : 'w-5 h-5'
+                              }`}
+                              onError={(e) => {
+                                // Fallback to emoji if image fails to load
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center ${
+                            previewDevice === 'mobile' ? 'w-4 h-4 text-xs' : 'w-5 h-5 text-xs'
+                          } ${config.ai_avatar_url ? 'hidden' : ''}`}>👤</div>
+                          <div className={`bg-gray-100 rounded-lg ${
+                            previewDevice === 'mobile' ? 'px-2 py-1' : 'px-2 py-1'
+                          }`}>
+                            <div className="flex space-x-1">
+                              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Chat Input */}
                     <div className={`border-t border-gray-200 ${
                       previewDevice === 'mobile' ? 'p-2' : 'p-3'
                     }`}>
-                      <div className="flex items-center space-x-1">
+                      <form onSubmit={handlePreviewSendMessage} className="flex items-center space-x-1">
                         <input
                           type="text"
-                          placeholder={config.placeholder_text || "Type your message..."}
-                          className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-500 placeholder-gray-400 ${
+                          placeholder={isPreviewTyping ? "AI is typing..." : (config.placeholder_text || "Type your message...")}
+                          value={previewInputValue}
+                          onChange={(e) => setPreviewInputValue(e.target.value)}
+                          onKeyPress={handlePreviewKeyPress}
+                          disabled={isPreviewTyping || !selectedWebsite}
+                          className={`flex-1 border border-gray-300 rounded min-w-0 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
                             previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
                           }`}
-                          readOnly
-                          value=""
                         />
                         <button
-                          className={`text-white rounded flex-shrink-0 whitespace-nowrap ${
+                          type="submit"
+                          disabled={!previewInputValue.trim() || isPreviewTyping || !selectedWebsite}
+                          className={`text-white rounded flex-shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed transition-opacity ${
                             previewDevice === 'mobile' ? 'px-1.5 py-1 text-xs' : 'px-2 py-1 text-xs'
                           }`}
                           style={{ backgroundColor: config.widget_color }}
                         >
-                          Send
+                          {isPreviewTyping ? '...' : 'Send'}
                         </button>
-                      </div>
+                      </form>
                     </div>
                   </div>
                   )}
@@ -1439,7 +1855,35 @@ export default function ChatLiteWidget() {
                       borderRadius: config.border_radius + 'px'
                     }}
                   >
-                    💬
+                    {config.button_logo_url ? (
+                      <img
+                        src={config.button_logo_url}
+                        alt="Chat Button"
+                        className="rounded-full object-cover"
+                        style={{
+                          width: (() => {
+                            const baseSize = config.widget_size === 'small' ? 30 : config.widget_size === 'large' ? 42 : 36;
+                            const deviceMultiplier = previewDevice === 'mobile' ? 0.8 : previewDevice === 'tablet' ? 0.9 : 1;
+                            return Math.round(baseSize * deviceMultiplier) + 'px';
+                          })(),
+                          height: (() => {
+                            const baseSize = config.widget_size === 'small' ? 30 : config.widget_size === 'large' ? 42 : 36;
+                            const deviceMultiplier = previewDevice === 'mobile' ? 0.8 : previewDevice === 'tablet' ? 0.9 : 1;
+                            return Math.round(baseSize * deviceMultiplier) + 'px';
+                          })()
+                        }}
+                        onError={(e) => {
+                          // Fallback to emoji if image fails to load
+                          e.currentTarget.style.display = 'none';
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '💬';
+                          }
+                        }}
+                      />
+                    ) : (
+                      '💬'
+                    )}
                   </button>
                 </div>
               </div>
@@ -1992,6 +2436,69 @@ export default function ChatLiteWidget() {
               </div>
             </div>
 
+            {/* First Page Crawl Status Banner - Fullscreen */}
+            {firstPageStatus && firstPageStatus.status !== 'ready' && (
+              <div className="bg-gray-900 border-b border-gray-700 px-4 py-3">
+                <div className="max-w-7xl mx-auto">
+                  {firstPageStatus.status === 'pending' && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-yellow-200">Preparing chat preview...</p>
+                          <p className="text-xs text-yellow-200/70 mt-0.5">Setting up your homepage content for instant testing</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {firstPageStatus.status === 'processing' && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-200">
+                            Processing homepage... ({firstPageStatus.estimated_time || '~10-15 seconds'})
+                          </p>
+                          <p className="text-xs text-blue-200/70 mt-0.5">Extracting and indexing content for chat functionality</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {firstPageStatus.status === 'retrying' && firstPageStatus.retry_info && (
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw className="w-4 h-4 text-orange-400 animate-spin" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-orange-200">
+                            Retry {firstPageStatus.retry_info.current_attempt}/{firstPageStatus.retry_info.max_attempts} in {firstPageStatus.retry_info.seconds_until_retry}s
+                          </p>
+                          <p className="text-xs text-orange-200/70 mt-0.5">
+                            {firstPageStatus.retry_info.error_message || 'Temporary issue, retrying automatically...'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {firstPageStatus.status === 'failed' && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <XCircle className="w-4 h-4 text-red-400" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-red-200">Setup failed after {firstPageStatus.failure_info?.total_attempts || 3} attempts</p>
+                          <p className="text-xs text-red-200/70 mt-0.5">
+                            {firstPageStatus.failure_info?.last_error || 'Please try again or contact support'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Modal Content */}
             <div className="flex-1 overflow-hidden flex items-center justify-center p-4">
               <div className={`
@@ -2143,40 +2650,66 @@ export default function ChatLiteWidget() {
                       </div>
 
                       {/* Chat Messages */}
-                      <div className="p-4 space-y-3 overflow-y-auto" style={{ height: '380px' }}>
-                        <div className="flex items-start space-x-2">
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center text-xs">👤</div>
-                          <div className="bg-gray-100 rounded-lg px-3 py-2 max-w-xs">
-                            <div className="text-gray-800 text-sm">{config.welcome_message || "Hello! How can I help you today?"}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-start justify-end space-x-2">
+                      <div ref={fullscreenMessagesContainerRef} className="p-4 space-y-3 overflow-y-auto" style={{ height: '380px' }}>
+                        {previewMessages.map((msg) => (
                           <div
-                            className="text-white rounded-lg px-3 py-2 max-w-xs text-sm"
-                            style={{ backgroundColor: config.widget_color }}
+                            key={msg.id}
+                            className={`flex items-start space-x-2 ${
+                              msg.type === 'user' ? 'justify-end' : ''
+                            }`}
                           >
-                            Hi, I need some help with...
+                            {msg.type === 'assistant' && (
+                              <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center text-xs">👤</div>
+                            )}
+                            <div
+                              className={`rounded-lg px-3 py-2 max-w-xs ${
+                                msg.type === 'assistant'
+                                  ? 'bg-gray-100'
+                                  : 'text-white'
+                              }`}
+                              style={msg.type === 'user' ? { backgroundColor: config.widget_color } : {}}
+                            >
+                              <div className={`text-sm ${
+                                msg.type === 'assistant' ? 'text-gray-800' : 'text-white'
+                              }`}>{msg.content}</div>
+                            </div>
                           </div>
-                        </div>
+                        ))}
+                        {isPreviewTyping && (
+                          <div className="flex items-start space-x-2">
+                            <div className="w-6 h-6 bg-gray-300 rounded-full flex-shrink-0 flex items-center justify-center text-xs">👤</div>
+                            <div className="bg-gray-100 rounded-lg px-3 py-2">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Chat Input */}
                       <div className="border-t border-gray-200 p-3">
-                        <div className="flex items-center space-x-2">
+                        <form onSubmit={handlePreviewSendMessage} className="flex items-center space-x-2">
                           <input
                             type="text"
-                            placeholder={config.placeholder_text || "Type your message..."}
-                            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm min-w-0 bg-white text-gray-500 placeholder-gray-400"
-                            readOnly
-                            value=""
+                            placeholder={isPreviewTyping ? "AI is typing..." : (config.placeholder_text || "Type your message...")}
+                            value={previewInputValue}
+                            onChange={(e) => setPreviewInputValue(e.target.value)}
+                            onKeyPress={handlePreviewKeyPress}
+                            disabled={isPreviewTyping || !selectedWebsite}
+                            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm min-w-0 bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                           <button
-                            className="text-white rounded px-4 py-2 text-sm flex-shrink-0"
+                            type="submit"
+                            disabled={!previewInputValue.trim() || isPreviewTyping || !selectedWebsite}
+                            className="text-white rounded px-4 py-2 text-sm flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                             style={{ backgroundColor: config.widget_color }}
                           >
-                            Send
+                            {isPreviewTyping ? '...' : 'Send'}
                           </button>
-                        </div>
+                        </form>
                       </div>
                     </div>
                   )}

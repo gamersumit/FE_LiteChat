@@ -96,6 +96,71 @@ export interface CrawlStatus {
   error_message?: string;
 }
 
+export interface RetryInfo {
+  current_attempt: number;
+  max_attempts: number;
+  next_retry_at: string;
+  seconds_until_retry: number;
+  error_message?: string;
+}
+
+export interface FailureInfo {
+  total_attempts: number;
+  last_error?: string;
+  screenshot_saved: boolean;
+  can_retry_manually: boolean;
+}
+
+export interface FirstPageStatus {
+  status: 'pending' | 'processing' | 'retrying' | 'ready' | 'failed';
+  ready_for_chat: boolean;
+  estimated_time?: string;
+  retry_info?: RetryInfo;
+  screenshot_url?: string;
+  chunks_count?: number;
+  crawled_at?: string;
+  failure_info?: FailureInfo;
+}
+
+// ==================== DEMO API INTERFACES ====================
+
+export interface DemoInitRequest {
+  url: string;
+}
+
+export interface DemoInitResponse {
+  demo_id: string;
+  status: string;
+  estimated_time: string;
+  message: string;
+  queue_position?: number;
+}
+
+export interface DemoStatusResponse {
+  status: 'pending' | 'processing' | 'ready' | 'failed';
+  demo_id: string;
+  url: string;
+  domain: string;
+  estimated_time?: string;
+  screenshot_url?: string;
+  chunks_count?: number;
+  error_message?: string;
+  created_at?: string;
+  queue_position?: number;
+  processing_message?: string;
+}
+
+export interface DemoChatRequest {
+  message: string;
+  session_id: string;
+}
+
+export interface DemoChatResponse {
+  response: string;
+  sources_used: number;
+  demo_only: boolean;
+}
+
 class CentralizedApiService {
   private config: ApiConfig;
   private pendingRequests: Map<string, Promise<any>> = new Map();
@@ -594,6 +659,42 @@ class CentralizedApiService {
   }
 
   /**
+   * Get first page crawl status (for instant testing)
+   */
+  async getFirstPageStatus(websiteId: string): Promise<ApiResponse<FirstPageStatus>> {
+    return this.request<FirstPageStatus>(`/api/v1/websites/${websiteId}/first-page-status`, {}, 0); // No cache for status polling
+  }
+
+  /**
+   * Retry failed first page crawl
+   */
+  async retryFirstPage(websiteId: string): Promise<ApiResponse<{ status: string; message: string }>> {
+    return this.request<{ status: string; message: string }>(`/api/v1/websites/${websiteId}/retry-first-page`, {
+      method: 'POST'
+    });
+  }
+
+  /**
+   * Chat with first page content only (for live preview testing)
+   */
+  async chatWithFirstPage(
+    websiteId: string,
+    message: string,
+    sessionId: string = 'test-session'
+  ): Promise<ApiResponse<{ response: string; sources_used: number; first_page_only: boolean }>> {
+    return this.request<{ response: string; sources_used: number; first_page_only: boolean }>(
+      `/api/v1/chat/first-page/${websiteId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: message
+        })
+      }
+    );
+  }
+
+  /**
    * Trigger manual crawl
    */
   async triggerCrawl(websiteId: string, maxPages?: number): Promise<ApiResponse<{ task_id: string }>> {
@@ -725,6 +826,154 @@ class CentralizedApiService {
       method: 'POST',
       body: JSON.stringify({ email })
     });
+  }
+
+  // ==================== DEMO API METHODS ====================
+  // For anonymous users to test ChatLite without authentication
+
+  /**
+   * Initiate demo crawl for anonymous testing
+   * NO AUTH REQUIRED - Public endpoint
+   * NO RETRIES - Fail fast for demo endpoints
+   */
+  async initiateDemoCrawl(url: string): Promise<ApiResponse<DemoInitResponse>> {
+    // Direct fetch without retry logic for demo endpoints
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/v1/demo/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to initiate demo. Please try again.';
+
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          // Use default message if can't parse error
+        }
+
+        return {
+          data: null as any,
+          success: false,
+          message: errorMessage
+        };
+      }
+
+      const data = await response.json();
+      return {
+        data,
+        success: true
+      };
+    } catch (error) {
+      console.error('Demo initiation error:', error);
+      return {
+        data: null as any,
+        success: false,
+        message: error instanceof Error && error.name === 'TimeoutError'
+          ? 'Request timed out. Please try again.'
+          : 'Connection error. Please check your internet and try again.'
+      };
+    }
+  }
+
+  /**
+   * Get demo crawl status (polling endpoint)
+   * NO AUTH REQUIRED - Public endpoint
+   * NO RETRIES - Fail fast for demo endpoints
+   */
+  async getDemoStatus(demoId: string): Promise<ApiResponse<DemoStatusResponse>> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/v1/demo/status/${demoId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        return {
+          data: null as any,
+          success: false,
+          message: 'Failed to fetch demo status'
+        };
+      }
+
+      const data = await response.json();
+      return {
+        data,
+        success: true
+      };
+    } catch (error) {
+      return {
+        data: null as any,
+        success: false,
+        message: 'Connection error'
+      };
+    }
+  }
+
+  /**
+   * Chat with demo website (RAG-based chat using demo content)
+   * NO AUTH REQUIRED - Public endpoint
+   * NO RETRIES - Fail fast for demo endpoints
+   */
+  async sendDemoChat(
+    demoId: string,
+    message: string,
+    sessionId: string = 'demo-session'
+  ): Promise<ApiResponse<DemoChatResponse>> {
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/v1/demo/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          demo_id: demoId,
+          message: message,
+          session_id: sessionId
+        }),
+        signal: AbortSignal.timeout(this.config.timeout)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to send message';
+
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          // Use default message
+        }
+
+        return {
+          data: null as any,
+          success: false,
+          message: errorMessage
+        };
+      }
+
+      const data = await response.json();
+      return {
+        data,
+        success: true
+      };
+    } catch (error) {
+      return {
+        data: null as any,
+        success: false,
+        message: 'Connection error'
+      };
+    }
   }
 
   // ==================== CACHE INVALIDATION METHODS ====================
